@@ -11,7 +11,6 @@ var files = {
 	],
 	"webgl / advanced": [
 		"webgl_buffergeometry_custom_attributes_particles",
-		"webgl_custom_attributes",
 		"webgl_custom_attributes_lines",
 		"webgl_custom_attributes_points",
 		"webgl_custom_attributes_points2"
