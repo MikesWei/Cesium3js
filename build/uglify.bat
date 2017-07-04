@@ -1,0 +1,1 @@
+uglifyjs Cesium3js.js -m -o Cesium3js.min.js

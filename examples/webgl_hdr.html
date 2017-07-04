@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - geometry - text</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+    <script src="../ThirdParty/three.js"></script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"></script>
+    <script src="../appconfig.js"></script>
+    <script src="../build/Cesium3js.js"></script>
+    <style>
+        body
+        {
+            font-family: Monospace;
+            background-color: #000;
+            color: #fff;
+            margin: 0px;
+            overflow: hidden;
+        }
+         html, body
+        {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+			#info {
+				color:#fff;
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+
+			}
+
+			a { color: red; }
+
+		
+	  #cesiumContainer
+        {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+    </div><script src="js/common.js" type="text/javascript"></script>
+		<div id="container"></div>
+		<div id="info">
+			<a href="http://threejs.org" target="_blank">three.js</a> - webgl HDR texture example -
+			based on <a href="http://spidergl.org/example.php?id=13" target="_blank">SpiderGL</a>
+		</div>
+
+	 
+		<script src="js/Detector.js"></script>
+		<script src="js/libs/stats.min.js"></script>
+
+		<!-- HDR fragment shader -->
+
+		<script id="fs-hdr" type="x-shader/x-fragment">
+
+			uniform sampler2D   tDiffuse;
+			uniform float       exposure;
+			uniform float       brightMax;
+
+			varying vec2  vUv;
+
+			vec3 decode_pnghdr( const in vec4 color ) {
+
+				// remove gamma correction
+				vec4 res = color * color;
+
+				// decoded RI
+				float ri = pow( 2.0, res.w * 32.0 - 16.0 );
+
+				// decoded HDR pixel
+				res.xyz = res.xyz * ri;
+				return res.xyz;
+
+			}
+
+			void main()	{
+
+				vec4 color = texture2D( tDiffuse, vUv );
+				color.xyz  = decode_pnghdr( color );
+
+				// apply gamma correction and exposure
+				//gl_FragColor = vec4( pow( exposure * color.xyz, vec3( 0.474 ) ), 1.0 );
+
+				// Perform tone-mapping
+				float Y = dot(vec4(0.30, 0.59, 0.11, 0.0), color);
+				float YD = exposure * (exposure/brightMax + 1.0) / (exposure + 1.0);
+				color *= YD;
+
+				gl_FragColor = vec4( color.xyz, 1.0 );
+
+			}
+
+		</script>
+
+		<!-- HDR vertex shader -->
+
+		<script id="vs-hdr" type="x-shader/x-vertex">
+
+			varying vec2 vUv;
+
+			void main()	{
+
+				vUv  = uv;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+			}
+
+		</script>
+
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var camera, scene, renderer;
+			var materialHDR, quad;
+
+			var sign = 1, rate = 1;
+
+			var clock = new THREE.Clock();
+
+			init();
+			animate();
+
+			function init() {
+
+				container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.z = 900;
+
+				scene = new THREE.Scene();
+
+				var texture = new THREE.TextureLoader().load( "textures/memorial.png" );
+				texture.minFilter = THREE.LinearFilter;
+				texture.magFilter = THREE.NearestFilter;
+
+				materialHDR = new THREE.ShaderMaterial( {
+
+					uniforms: {
+						tDiffuse:  { value: texture },
+						exposure:  { value: 0.125 },
+						brightMax: { value: 0.5 }
+						},
+					vertexShader: getText( 'vs-hdr' ),
+					fragmentShader: getText( 'fs-hdr' )
+
+				} );
+
+				var plane = new THREE.PlaneBufferGeometry( 512, 768 );
+
+				quad = new THREE.Mesh( plane, materialHDR );
+				quad.position.z = -100;
+				scene.add( quad );
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function getText( id ) {
+
+				return document.getElementById( id ).textContent;
+
+			}
+
+			//
+
+			function animate() {
+
+				//requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+
+				delta = clock.getDelta() * 5;
+
+				if ( materialHDR.uniforms.exposure.value > 0 || materialHDR.uniforms.exposure.value < 1 ) {
+
+					rate = 0.25;
+
+				} else {
+
+					rate = 1;
+
+				}
+
+				if ( materialHDR.uniforms.exposure.value > 5 || materialHDR.uniforms.exposure.value <= 0 ) {
+
+					sign *= -1;
+
+				}
+
+				materialHDR.uniforms.exposure.value += sign * rate * delta;
+
+			//	renderer.render( scene, camera );
+				threeScene.setScene3js(scene);
+				setTimeout(function () {
+
+				    threeScene.setScene3js(scene);
+				}, 5000);
+			}
+
+		</script>
+	</body>
+</html>

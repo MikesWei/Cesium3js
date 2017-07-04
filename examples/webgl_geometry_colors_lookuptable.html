@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+    <meta charset="utf-8" />
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+    <script src="../ThirdParty/three.js"></script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"></script>
+    <script src="../appconfig.js"></script>
+    <script src="../build/Cesium3js.js"></script>
+    <script src="js/CurveExtras.js" type="text/javascript"></script>
+    <script src="js/ParametricGeometries.js" type="text/javascript"></script>
+    <script type="text/javascript" src="js/math/Lut.js"></script>
+    <style>
+        html, body
+        {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #cesiumContainer
+        {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+   
+</head>
+<body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+     <script src="js/common.js" type="text/javascript"></script>
+    </div>
+    <script>
+
+     
+
+        var scene = new THREE.Scene();
+
+        // CAMERA
+        camera = new THREE.PerspectiveCamera(20, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.name = 'camera';
+        scene.add(camera);
+
+     
+        // LIGHT
+        var ambientLight = new THREE.AmbientLight(0x444444);
+        ambientLight.name = 'ambientLight';
+        scene.add(ambientLight);
+
+        colorMap = 'rainbow';
+        numberOfColors = 512;
+
+        legendLayout = 'vertical';
+
+        loadModel(colorMap, numberOfColors, legendLayout);
+
+        camera.position.x = 17;
+        camera.position.y = 9;
+        camera.position.z = 32;
+
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        directionalLight.position.x = 17;
+        directionalLight.position.y = 9;
+        directionalLight.position.z = 30;
+        directionalLight.name = 'directionalLight';
+        scene.add(directionalLight);
+
+
+        function loadModel(colorMap, numberOfColors, legendLayout) {
+
+            var loader = new THREE.BufferGeometryLoader();
+
+            loader.load("models/json/pressure.json", function (geometry) {
+
+                geometry.computeVertexNormals();
+                geometry.normalizeNormals();
+
+                var material = new THREE.MeshLambertMaterial({
+
+                    side: THREE.DoubleSide,
+                    color: 0xF5F5F5,
+                    vertexColors: THREE.VertexColors
+
+                });
+
+                var lutColors = [];
+
+                lut = new THREE.Lut(colorMap, numberOfColors);
+
+                lut.setMax(2000);
+                lut.setMin(0);
+
+                for (var i = 0; i < geometry.attributes.pressure.array.length; i++) {
+
+                    var colorValue = geometry.attributes.pressure.array[i];
+
+                    color = lut.getColor(colorValue);
+
+                    if (color == undefined) {
+
+                        console.log("ERROR: " + colorValue);
+
+                    } else {
+
+                        lutColors[3 * i] = color.r;
+                        lutColors[3 * i + 1] = color.g;
+                        lutColors[3 * i + 2] = color.b;
+
+                    }
+
+                }
+
+                geometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(lutColors), 3));
+
+                mesh = new THREE.Mesh(geometry, material);
+
+                geometry.computeBoundingBox();
+                var boundingBox = geometry.boundingBox;
+                var center = boundingBox.getCenter();
+
+//                if (position === undefined) {
+
+                    position = new THREE.Vector3(center.x, center.y, center.z);
+
+//                }
+
+                scene.add(mesh);
+
+                if (legendLayout) {
+
+                    if (legendLayout == 'horizontal') {
+
+                        legend = lut.setLegendOn({ 'layout': 'horizontal', 'position': { 'x': 21, 'y': 6, 'z': 5} });
+
+                    }
+
+                    else {
+
+                        legend = lut.setLegendOn();
+
+                    }
+
+                    scene.add(legend);
+
+                    var labels = lut.setLegendLabels({ 'title': 'Pressure', 'um': 'Pa', 'ticks': 5 });
+
+                    scene.add(labels['title']);
+
+                    for (var i = 0; i < Object.keys(labels['ticks']).length; i++) {
+
+                        scene.add(labels['ticks'][i]);
+                        scene.add(labels['lines'][i]);
+
+                    }
+
+                }
+
+                threeScene.setScene3js(scene);
+            });
+
+        }
+         
+
+		</script>
+</body>
+</html>

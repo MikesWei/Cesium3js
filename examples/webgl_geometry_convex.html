@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+    <meta charset="utf-8" />
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+    <script src="../ThirdParty/three.js"></script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"></script>
+    <script src="../appconfig.js"></script>
+    <script src="../build/Cesium3js.js"></script>
+    <script src="js/CurveExtras.js" type="text/javascript"></script>
+    <script src="js/ParametricGeometries.js" type="text/javascript"></script>
+    <script type="text/javascript" src="js/math/Lut.js"></script>
+    <style>
+        html, body
+        {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #cesiumContainer
+        {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+   
+</head>
+<body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+        <script src="js/geometries/ConvexGeometry.js" type="text/javascript"></script>
+     <script src="js/common.js" type="text/javascript"></script>
+    </div>
+    <script>
+
+
+			var	scene = new THREE.Scene();
+
+			  
+				scene.add( new THREE.AmbientLight( 0x222222 ) );
+
+				var light = new THREE.PointLight( 0xffffff, 1 );
+				 
+
+				scene.add( new THREE.AxisHelper( 20 ) );
+
+				//
+
+				var loader = new THREE.TextureLoader();
+				var texture = loader.load( 'textures/sprites/disc.png' );
+
+				group = new THREE.Group();
+				scene.add( group );
+
+				// points
+
+				var pointsGeometry = new THREE.DodecahedronGeometry( 10 );
+
+				for ( var i = 0; i < pointsGeometry.vertices.length; i ++ ) {
+
+					//pointsGeometry.vertices[ i ].add( randomPoint().multiplyScalar( 2 ) ); // wiggle the points
+
+				}
+
+				var pointsMaterial = new THREE.PointsMaterial( {
+
+					color: 0x0080ff,
+					map: texture,
+					size: 1,
+					alphaTest: 0.5
+
+				} );
+
+				var points = new THREE.Points( pointsGeometry, pointsMaterial );
+				group.add( points );
+
+				// convex hull
+
+				var meshMaterial = new THREE.MeshLambertMaterial( {
+					color: 0xffffff,
+					opacity: 0.5,
+					transparent: true
+				} );
+
+				var meshGeometry = new THREE.ConvexGeometry( pointsGeometry.vertices );
+
+				mesh = new THREE.Mesh( meshGeometry, meshMaterial );
+				mesh.material.side = THREE.BackSide; // back faces
+				mesh.renderOrder = 0;
+				group.add( mesh );
+
+				mesh = new THREE.Mesh( meshGeometry, meshMaterial.clone() );
+				mesh.material.side = THREE.FrontSide; // front faces
+				mesh.renderOrder = 1;
+				group.add( mesh );
+
+				threeScene.setScene3js(scene);
+			 
+		</script>
+
+	</body>
+</html>
