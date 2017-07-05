@@ -3,6 +3,7 @@ var files = {
 		"webgl_geometries",
 		"webgl_geometries2",
 		"webgl_gpu_particle_system",
+		"webgl_loader_collada",
 		"webgl_shader_lava",
 		"webgl_shader2",
 		"webgl_shaders_vector",
