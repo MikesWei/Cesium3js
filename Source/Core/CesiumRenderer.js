@@ -263,7 +263,7 @@ CesiumRenderer.prototype = {
 
                     //yUpToZUp
                     if (object.up && object.up.y) {
-                        Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
+                       Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
                     }
                     var mtl = object.material;
                     if (mtl.isMultiMaterial) {
@@ -272,6 +272,10 @@ CesiumRenderer.prototype = {
                     if (mtl.needsUpdate) {
                         that.setRenderState(
                             mtl,
+                            drawCommand,
+                            frameState
+                            );
+                        that.createUniformMap(mtl,
                             drawCommand,
                             frameState
                             );
@@ -971,7 +975,7 @@ CesiumRenderer.prototype = {
     *@private
     */
     createUniformMap: function (material, drawCommand, frameState) {
-        if (this._uniformMaps[material.uuid] && !material.needsUpdate) {
+        if (this._uniformMaps[material.uuid] && !material.needsUpdate&&!this._justLoad) {
             drawCommand.uniformMap = this._uniformMaps[material.uuid];
             return;
         }
@@ -1349,10 +1353,10 @@ CesiumRenderer.prototype = {
 
         } else {
             fs += "material.diffuse = u_diffuse.rgb+u_specular.rgb;\n\
-                           material.alpha = u_diffuse.a;\n";
+                           material.alpha =  u_diffuse.a;\n";
         }
 
-        fs += "gl_FragColor = czm_phong(normalize(positionToEyeEC), material);\n\
+        fs += "gl_FragColor =  czm_phong(normalize(positionToEyeEC), material);\n\
                 }\n\
                 ";
 
@@ -1395,6 +1399,10 @@ CesiumRenderer.prototype = {
         // var start = new Date();
 
         var attributes = {};
+        if (!geometry.attributes.normal) {
+            geometry.computeFaceNormals();
+
+        }
         for (var attrName in geometry.attributes) {
 
             if (geometry.attributes.hasOwnProperty(attrName)) {
@@ -1412,6 +1420,7 @@ CesiumRenderer.prototype = {
 
             }
         }
+       
         var index = geometry.getIndex();
         var indices = new Int32Array(drawCount);
         if (!index) {
@@ -1422,7 +1431,7 @@ CesiumRenderer.prototype = {
             }
         } else {
             for (var i = 0; i < drawCount; i++) {
-                indices[i] = index[i + drawStart];
+                indices[i] = index.array[i + drawStart];
             }
         }
 
