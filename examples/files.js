@@ -7,8 +7,7 @@ var files = {
 		"webgl_shader_lava",
 		"webgl_shader2",
 		"webgl_shaders_vector",
-		"webgl_shading_physical",
-		"webgl_shadowmap",
+		"webgl_shading_physical"
 	],
 	"webgl / advanced": [
 		"webgl_buffergeometry",
