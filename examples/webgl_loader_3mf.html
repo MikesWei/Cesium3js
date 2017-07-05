@@ -1,25 +1,57 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <title>three.js webgl - geometry - text</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
-    <script src="../ThirdParty/three.js"></script>
-    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"></script>
-    <script src="../appconfig.js"></script>
-    <script src="../build/Cesium3js.js"></script>
+
     <style>
-        body
-        {
+        body {
             font-family: Monospace;
             background-color: #000;
             color: #fff;
             margin: 0px;
             overflow: hidden;
         }
-         html, body
-        {
+
+
+        #info {
+            color: #fff;
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+        }
+
+        a {
+            color: skyblue
+        }
+
+        .button {
+            background: #999;
+            color: #eee;
+            padding: 0.2em 0.5em;
+            cursor: pointer
+        }
+
+        .highlight {
+            background: orange;
+            color: #fff;
+        }
+
+        span {
+            display: inline-block;
+            width: 60px;
+            float: left;
+            text-align: center;
+        }
+
+
+
+
+        html, body {
             width: 100%;
             height: 100%;
             height: -moz-calc(100% );
@@ -33,31 +65,7 @@
             overflow: hidden;
         }
 
-			#info {
-				color: #fff;
-				position: absolute;
-				top: 10px;
-				width: 100%;
-				text-align: center;
-				z-index: 100;
-				display:block;
-
-			}
-
-			a { color: skyblue }
-			.button { background:#999; color:#eee; padding:0.2em 0.5em; cursor:pointer }
-			.highlight { background:orange; color:#fff; }
-
-			span {
-				display: inline-block;
-				width: 60px;
-				float: left;
-				text-align: center;
-			}
-
-	
-	  #cesiumContainer
-        {
+        #cesiumContainer {
             width: 100%;
             height: 100%;
             position: relative;
@@ -70,95 +78,101 @@
             font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
         }
     </style>
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
 </head>
 <body>
     <div id="cesiumContainer">
     </div>
     <div id="creditContainer" style="display: none;">
-    </div><script src="js/common.js" type="text/javascript"></script>
-		<div id="info">
-			<a href="http://threejs.org" target="_blank">three.js</a>
-			<a href="http://3mf.io" target="_blank">3MF File format</a>
-			<div>3MF loader test by <a href="https://github.com/technohippy" target="_blank">technohippy</a></div>
-			<div>Cube gears file from <a href="https://github.com/3MFConsortium/3mf-samples" target="_blank">3mf-samples</a></div>
-		</div>
-         
-		<script src="js/loaders/3MFLoader.js"></script>
+    </div>
 
-		<script src="js/Detector.js"></script>
-		<script src="js/controls/OrbitControls.js"></script>
+    <script src="../ThirdParty/three.js"> </script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"> </script>
+    <script src="../appconfig.js"> </script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+    <script src="js/common.js" type="text/javascript"></script>
 
-		<script src="js/libs/jszip.min.js"></script>
+    <div id="info">
+        <a href="http://threejs.org" target="_blank">three.js</a>
+        <a href="http://3mf.io" target="_blank">3MF File format</a>
+        <div>3MF loader test by <a href="https://github.com/technohippy" target="_blank">technohippy</a></div>
+        <div>Cube gears file from <a href="https://github.com/3MFConsortium/3mf-samples" target="_blank">3mf-samples</a></div>
+    </div>
 
-		<script>
+    <script src="js/loaders/3MFLoader.js"></script>
+    <script src="js/Detector.js"></script>
+    <script src="js/controls/OrbitControls.js"></script>
+    <script src="js/libs/jszip.min.js"></script>
+    <script>
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+        if (!Detector.webgl) Detector.addGetWebGLMessage();
 
-			var camera, scene, renderer;
+        var camera, scene, renderer;
 
-		
 
-			function init() {
 
-				scene = new THREE.Scene();
-				scene.add( new THREE.AmbientLight( 0x999999 ) );
+        function init() {
 
-				var pointLight = new THREE.PointLight( 0xffffff, 0.6 );
-				pointLight.position.set( 80, 90, 150 );
-				scene.add( pointLight );
+            scene = new THREE.Scene();
+            scene.add(new THREE.AmbientLight(0x999999));
 
-				camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 500 );
+            var pointLight = new THREE.PointLight(0xffffff, 0.6);
+            pointLight.position.set(80, 90, 150);
+            scene.add(pointLight);
 
-				// Z is up for objects intended to be 3D printed.
+            camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 500);
 
-				camera.up.set( 0, 0, 1 );
-				camera.position.set( -80, -90, 150 );
+            // Z is up for objects intended to be 3D printed.
 
-				//camera.add( new THREE.PointLight( 0xffffff, 0.8 ) );
+            camera.up.set(0, 0, 1);
+            camera.position.set(-80, -90, 150);
 
-				scene.add( camera );
+            //camera.add( new THREE.PointLight( 0xffffff, 0.8 ) );
 
-				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setClearColor( 0x333333 );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				document.body.appendChild( renderer.domElement );
+            scene.add(camera);
 
-				var loader = new THREE.ThreeMFLoader();
-				loader.load( './models/3mf/cube_gears.3mf', function ( object ) {
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setClearColor(0x333333);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-					scene.add( object );
-					threeScene.setScene3js(scene);
+            var loader = new THREE.ThreeMFLoader();
+            loader.load('./models/3mf/cube_gears.3mf', function (object) {
 
-				} );
+                scene.add(object);
 
-				var controls = new THREE.OrbitControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', render );
-				controls.target.set( 80, 65, 35 );
-				controls.update();
+                cesiumRenderer.render(scene, camera, true);
 
-				window.addEventListener( 'resize', onWindowResize, false );
+            });
 
-			}
+            var controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.addEventListener('change', render);
+            controls.target.set(80, 65, 35);
+            controls.update();
 
-			function onWindowResize() {
+            window.addEventListener('resize', onWindowResize, false);
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+        }
 
-				renderer.setSize( window.innerWidth, window.innerHeight );
+        function onWindowResize() {
 
-		//		render();
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
 
-			}
+            renderer.setSize(window.innerWidth, window.innerHeight);
 
-			function render() {
+            //		render();
 
-			    //renderer.render( scene, camera );
-			
-			     
-			}
-			init();
-		</script>
-	</body>
+        }
+
+        function render() {
+
+            //renderer.render( scene, camera );
+
+            cesiumRenderer.render(scene, camera);
+        }
+        init();
+    </script>
+</body>
 </html>

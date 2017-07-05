@@ -1,25 +1,20 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <title>three.js webgl - geometry - text</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
-    <script src="../ThirdParty/three.js"></script>
-    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"></script>
-    <script src="../appconfig.js"></script>
-    <script src="../build/Cesium3js.js"></script>
+
     <style>
-        body
-        {
+        body {
             font-family: Monospace;
             background-color: #000;
             color: #fff;
             margin: 0px;
             overflow: hidden;
         }
-         html, body
-        {
+
+        html, body {
             width: 100%;
             height: 100%;
             height: -moz-calc(100% );
@@ -32,8 +27,8 @@
             padding: 0;
             overflow: hidden;
         }
-        	  #cesiumContainer
-        {
+
+        #cesiumContainer {
             width: 100%;
             height: 100%;
             position: relative;
@@ -46,26 +41,32 @@
             font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
         }
     </style>
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
 </head>
 <body>
     <div id="cesiumContainer">
     </div>
     <div id="creditContainer" style="display: none;">
-    </div><script src="js/common.js" type="text/javascript"></script>
-		<div id="container"></div>
-		<div id="info">
-			<a href="http://threejs.org" target="_blank">three.js</a>
-			<a href="https://github.com/Virtulous" target="_blank">Assimp File format</a>
-			<div>Assimp loader by <a href="https://virtulo.us" target="_blank">Virtulous</a></div>
-			<div>Octaminator model from <a href="http://opengameart.org/content/octaminator-engine-ready" target="_blank">Teh_Bucket and raymoohawk</a></div>
-		</div> 
-		<script src="js/loaders/AssimpLoader.js"></script>
-		<script src="js/Detector.js"></script>
-		<script src="js/libs/stats.min.js"></script>
+    </div>
 
-		<script src="js/controls/OrbitControls.js"></script>
-
-		<script>
+    <script src="../ThirdParty/three.js"> </script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"> </script>
+    <script src="../appconfig.js"> </script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+    <script src="js/common.js" type="text/javascript"></script>
+    
+    <div id="container"></div>
+    <div id="info">
+        <a href="http://threejs.org" target="_blank">three.js</a>
+        <a href="https://github.com/Virtulous" target="_blank">Assimp File format</a>
+        <div>Assimp loader by <a href="https://virtulo.us" target="_blank">Virtulous</a></div>
+        <div>Octaminator model from <a href="http://opengameart.org/content/octaminator-engine-ready" target="_blank">Teh_Bucket and raymoohawk</a></div>
+    </div>
+    <script src="js/loaders/AssimpLoader.js"></script>
+    <script src="js/Detector.js"></script>
+    <script src="js/libs/stats.min.js"></script>
+    <script src="js/controls/OrbitControls.js"></script>
+    <script>
 
 		if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
@@ -107,13 +108,16 @@
 			loader.load( "./models/assimp/octaminator/Octaminator.assimp", function ( err, result ) {
 
 				var object = result.object;
+				object.scale.x = 0.125;
+				object.scale.y = 0.125;
+				object.scale.z = 0.125;
 
-				object.position.y = - 100;
-				object.rotation.x = Math.PI / 2;
+				object.position.y = - 10;
+				object.rotation.x = Math.PI  ;
 				scene.add( object );
 
-			//	animation = result.animation;
-				threeScene.setScene3js(scene);
+			 	animation = result.animation;
+			 	cesiumRenderer.render(scene, camera,true);
 			} );
 
 			window.addEventListener( 'resize', onWindowResize, false );
@@ -131,15 +135,15 @@
 
 		function animate() {
 
-//			requestAnimationFrame( animate, renderer.domElement );
-//			renderer.render( scene, camera );
+			requestAnimationFrame( animate, renderer.domElement );
+			cesiumRenderer.render( scene, camera );
 
-//			if ( animation ) animation.setTime( performance.now() / 1000 );
+			if ( animation ) animation.setTime( performance.now() / 1000 );
 
-//			stats.update();
+			stats.update();
 
 		}
-		</script>
+    </script>
 </body>
 
 </html>
