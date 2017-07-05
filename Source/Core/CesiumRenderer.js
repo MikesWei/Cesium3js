@@ -655,9 +655,9 @@ CesiumRenderer.prototype = {
 
                     if (geometry && geometry instanceof THREE.BufferGeometry) {
 
-                        //if (!geometry.needsUpdate && !that._justLoad) {
-                        //    return;
-                        //}
+                        if (!geometry.needsUpdate && !that._justLoad) {
+                            return;
+                        }
 
                         object.geometry.needsUpdate = false;
 
@@ -1477,15 +1477,10 @@ CesiumRenderer.prototype = {
     /**
     *@param {THREE.Scene}scene3js
     */
-    render: function (scene3js) {
+    render: function (scene3js,camera3js,forceReload) {
         if ((this.scene3js && this.scene3js !== scene3js)
-            || !this.scene3js) {
-
-            if (this.scene3js) {
-                //  this.scene3js.dispose();
-            }
-
-
+            || !this.scene3js || forceReload) {
+             
             this._justLoad = true;
         }
 
