@@ -200,7 +200,7 @@ function CesiumRenderer(scene, modelMatrix) {
     this._justLoad = true;
 }
 
-var scratchTranslation = new Cartesian3();  
+var scratchTranslation = new Cartesian3();
 var scratchQuaternion = new Cesium.Quaternion();
 var scratchScale = new Cartesian3();
 var scratchTranslationQuaternionRotationScale = new Matrix4();
@@ -217,7 +217,35 @@ CesiumRenderer.prototype = {
             console.log(info);
         }
     },
-    getCommandsFromObject: function (object, commands) {
+    computeMatrix: function (object, computeModelMatrix) {
+        if (object.parent) {
+            this.computeMatrix(object.parent,computeModelMatrix);
+        }
+        scratchTranslation.x = object.position.x;
+        scratchTranslation.y = object.position.y;
+        scratchTranslation.z = object.position.z;
+
+        scratchScale.x = object.scale.x;
+        scratchScale.y = object.scale.y;
+        scratchScale.z = object.scale.z;
+
+        scratchQuaternion.x = object.quaternion.x;
+        scratchQuaternion.y = object.quaternion.y;
+        scratchQuaternion.z = object.quaternion.z;
+        scratchQuaternion.w = object.quaternion.w;
+
+        //translate,rotate,scale
+
+        Matrix4.fromTranslationQuaternionRotationScale(
+            scratchTranslation, scratchQuaternion,
+            scratchScale, scratchTranslationQuaternionRotationScale);
+
+        Matrix4.multiplyTransformation(
+            computeModelMatrix,
+            scratchTranslationQuaternionRotationScale,
+            computeModelMatrix);
+    },
+    getCommandsFromObject: function (object, commands, frameState) {
         if (!commands) {
             commands = [];
         }
@@ -225,39 +253,32 @@ CesiumRenderer.prototype = {
         var that = this;
         if (object.isMesh || object.isLine || object.isPoints) {
             if (object.commandList && Array.isArray(object.commandList)) {
+
+                var i = 0;
                 object.commandList.forEach(function (drawCommand) {
+
+
                     Matrix4.clone(that.modelMatrix, computeModelMatrix);
-
-                    scratchTranslation.x = object.position.x;
-                    scratchTranslation.y = object.position.y;
-                    scratchTranslation.z = object.position.z; 
-
-                    scratchScale.x = object.scale.x;
-                    scratchScale.y = object.scale.y;
-                    scratchScale.z = object.scale.z;
-
-                    scratchQuaternion.x = object.quaternion.x;
-                    scratchQuaternion.y = object.quaternion.y;
-                    scratchQuaternion.z = object.quaternion.z;
-                    scratchQuaternion.w = object.quaternion.w;
-
-                    //translate,rotate,scale
-
-                    Matrix4.fromTranslationQuaternionRotationScale(
-                        scratchTranslation, scratchQuaternion,
-                        scratchScale, scratchTranslationQuaternionRotationScale);
-
-                    Matrix4.multiplyTransformation(
-                        computeModelMatrix,
-                        scratchTranslationQuaternionRotationScale,
-                        computeModelMatrix);
-                     
+                    that.computeMatrix(object, computeModelMatrix);
+                    
                     //yUpToZUp
                     if (object.up && object.up.y) {
                         Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
                     }
-
+                    var mtl = object.material;
+                    if (mtl.isMultiMaterial) {
+                        mtl = object.material.materials[i];
+                    }
+                    if (mtl.needsUpdate) {
+                        that.setRenderState(
+                            mtl,
+                            drawCommand,
+                            frameState
+                            );
+                        mtl.needsUpdate = false;
+                    }
                     commands.push(drawCommand);
+                    i++;
                 });
             }
         }
@@ -266,7 +287,7 @@ CesiumRenderer.prototype = {
 
         for (var i = 0, l = children.length; i < l; i++) {
 
-            this.getCommandsFromObject(children[i], commands);
+            this.getCommandsFromObject(children[i], commands, frameState);
 
         }
         return commands;
@@ -290,7 +311,7 @@ CesiumRenderer.prototype = {
             }
             this.scene3js.needUpdate = false;
 
-            var commands = this.getCommandsFromObject(this.scene3js);
+            var commands = this.getCommandsFromObject(this.scene3js, null, frameState);
             if (commands && Array.isArray(commands)) {
                 this.commands = commands;
             }
@@ -336,58 +357,58 @@ CesiumRenderer.prototype = {
         // morph targets 
         /*var morphTargetInfluences = object.morphTargetInfluences; 
         if (morphTargetInfluences !== undefined) {
-
+    
             var activeInfluences = [];
-
+    
             for (var i = 0, l = morphTargetInfluences.length; i < l; i++) {
-
+    
                 var influence = morphTargetInfluences[i];
                 activeInfluences.push([influence, i]);
-
+    
             }
-
+    
             activeInfluences.sort(absNumericalSort);
-
+    
             if (activeInfluences.length > 8) {
-
+    
                 activeInfluences.length = 8;
-
+    
             }
-
+    
             var morphAttributes = geometry.morphAttributes;
-
+    
             for (var i = 0, l = activeInfluences.length; i < l; i++) {
-
+    
                 var influence = activeInfluences[i];
                 morphInfluences[i] = influence[0];
-
+    
                 if (influence[0] !== 0) {
-
+    
                     var index = influence[1];
-
+    
                     if (material.morphTargets === true && morphAttributes.position) geometry.addAttribute('morphTarget' + i, morphAttributes.position[index]);
                     if (material.morphNormals === true && morphAttributes.normal) geometry.addAttribute('morphNormal' + i, morphAttributes.normal[index]);
-
+    
                 } else {
-
+    
                     if (material.morphTargets === true) geometry.removeAttribute('morphTarget' + i);
                     if (material.morphNormals === true) geometry.removeAttribute('morphNormal' + i);
-
+    
                 }
-
+    
             }
-
+    
             for (var i = activeInfluences.length, il = morphInfluences.length; i < il; i++) {
-
+    
                 morphInfluences[i] = 0.0;
-
+    
             }
-
+    
             //program.getUniforms().setValue(
             //    _gl, 'morphTargetInfluences', morphInfluences);
-
+    
             updateBuffers = true;
-
+    
         }
         */
         //
@@ -634,9 +655,9 @@ CesiumRenderer.prototype = {
 
                     if (geometry && geometry instanceof THREE.BufferGeometry) {
 
-                        if (!geometry.needsUpdate && !that._justLoad) {
-                            return;
-                        }
+                        //if (!geometry.needsUpdate && !that._justLoad) {
+                        //    return;
+                        //}
 
                         object.geometry.needsUpdate = false;
 
@@ -848,14 +869,14 @@ CesiumRenderer.prototype = {
         });
     },
     /**
-   *
-   *
-   *@param {THREE.Material}material
-   *@param {Cesium.DrawCommand}command
-   *@param {Cesium.FrameState}frameState
-   *@private
-   */
-    createRenderState: function (material, command, frameState) {
+    *
+    *
+    *@param {THREE.Material}material
+    *@param {Cesium.DrawCommand}command
+    *@param {Cesium.FrameState}frameState
+    *@private
+    */
+    setRenderState: function (material, command, frameState) {
         var defaults = {
             frontFace: WindingOrder.COUNTER_CLOCKWISE,
             cull: {
@@ -933,7 +954,7 @@ CesiumRenderer.prototype = {
         };
 
         command.renderState = RenderState.fromCache(defaults);
-        var translucent = true;
+
         if (material.transparent) {
             command.renderState.depthMask = false;
             Object.assign(command.renderState.blending, BlendingState.ALPHA_BLEND)
@@ -997,7 +1018,7 @@ CesiumRenderer.prototype = {
         var that = this;
         if (material) {
 
-            function getTextureCallback(texture3js) {
+            function getTextureCallback(texture3js, mtl) {
                 return function () {
 
                     if (!that._textureCache[texture3js.uuid]) {
@@ -1014,21 +1035,26 @@ CesiumRenderer.prototype = {
                                         pixelFormat: image.internalFormat,
                                         width: image.width,
                                         height: image.height,
-                                        pixelFormat: PixelFormat.RGBA,
-                                        pixelDatatype: PixelDatatype.UNSIGNED_BYTE,
                                         source: {
                                             arrayBufferView: image.bufferView
                                         }
                                     });
+
                                 } else {
                                     tex = new Texture({
                                         context: frameState.context,
-                                        source: image,
-                                        pixelFormat: PixelFormat.RGBA,
-                                        pixelDatatype: PixelDatatype.UNSIGNED_BYTE
+                                        source: image
                                     });
+
                                 }
 
+                                if (typeof image.src === 'string') {
+                                    mtl.transparent = image.src.startsWith("data:image/png")
+                                                       || image.src.endsWith(".png");
+                                }
+
+
+                                mtl.needsUpdate = true;
                                 //var tex = new Cesium.Texture({
                                 //    context: frameState.context,
                                 //    source: image
@@ -1063,6 +1089,7 @@ CesiumRenderer.prototype = {
                                             source: image
                                         });
                                     }
+                                    mtl.needsUpdate = true;
                                     //tex.flipY = texture3js.flipY;
                                     //tex.preMultiplyAlpha = texture3js.premultiplyAlpha;
                                     //tex.sampler._magnificationFilter = texture3js.magFilter;
@@ -1070,6 +1097,10 @@ CesiumRenderer.prototype = {
                                     //tex.sampler._wrapS = texture3js.wrapS;
                                     //tex.sampler._wrapT = texture3js.wrapT;
 
+                                    if (typeof image.src === 'string') {
+                                        mtl.transparent = image.src.startsWith("data:image/png")
+                                                           || image.src.endsWith(".png");
+                                    }
 
                                     that._textureCache[texture3js.uuid] = tex;
 
@@ -1089,7 +1120,8 @@ CesiumRenderer.prototype = {
             uniformMap["u_diffuse"] = function () {
                 var color = Cesium.Color.SKYBLUE;
                 if (material["color"]) {
-                    color = new Cesium.Color(material["color"].r, material["color"].g, material["color"].b, material["color"].a);
+                    color = new Cesium.Color(material["color"].r,
+                        material["color"].g, material["color"].b, material["color"].a, 1.0);
                 }
                 return color;
             }
@@ -1098,7 +1130,8 @@ CesiumRenderer.prototype = {
 
             uniformMap["u_specular"] = function () {
                 if (material.specular) {
-                    return new Cesium.Color(material["specular"].r, material["specular"].g, material["specular"].b);
+                    return new Cesium.Color(
+                        material["specular"].r, material["specular"].g, material["specular"].b, 1.0);
                 } else {
                     return new Cesium.Color(0.0, 0, 0);
 
@@ -1107,7 +1140,7 @@ CesiumRenderer.prototype = {
 
             if (material["map"] && material["map"].isTexture) {
 
-                uniformMap["u_diffuseMap"] = getTextureCallback(material["map"]);
+                uniformMap["u_diffuseMap"] = getTextureCallback(material["map"], material);
 
             }
 
@@ -1155,7 +1188,7 @@ CesiumRenderer.prototype = {
 
                             }
                         } else if (item.value.isTexture) {
-                            uniformMap[name] = getTextureCallback(item.value);
+                            uniformMap[name] = getTextureCallback(item.value, material);
                         } else if (item.value.isMatrix4) {
                             uniformMap[name] = function () {
                                 return Matrix4.fromArray(item.value.elements);
@@ -1358,21 +1391,22 @@ CesiumRenderer.prototype = {
 
             fs += "vec4 diffuse = texture2D(u_diffuseMap,v_uv);\n";
             fs += "material.diffuse = diffuse.rgb;\n";
+            fs += "material.alpha = diffuse.a;\n";
 
         }
-        else
-            if (geometry.attributes.color) {
-                fs += "material.diffuse = v_color.rgb;\n\
+        else if (geometry.attributes.color) {
+            fs += "material.diffuse = v_color.rgb;\n\
                            material.alpha = v_color.a;\n";
 
-            } else {
-                fs += "material.diffuse = u_diffuse.rgb+u_specular.rgb;\n\
+        } else {
+            fs += "material.diffuse = u_diffuse.rgb+u_specular.rgb;\n\
                            material.alpha = u_diffuse.a;\n";
-            }
+        }
 
-        fs += "gl_FragColor =czm_phong(normalize(positionToEyeEC), material);\n\
+        fs += "gl_FragColor = czm_phong(normalize(positionToEyeEC), material);\n\
                 }\n\
                 ";
+
         fs = parseIncludes(fs);
         return fs;
     },
@@ -1394,7 +1428,7 @@ CesiumRenderer.prototype = {
 
         this.createVertexArray(geometry, command, frameState);
         this.createShaderProgram(geometry, material, command, frameState);
-        this.createRenderState(material, command, frameState);
+        this.setRenderState(material, command, frameState);
         this.createUniformMap(material, command, frameState);
 
         return command;
