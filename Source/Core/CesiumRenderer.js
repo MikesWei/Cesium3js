@@ -191,8 +191,7 @@ function CesiumRenderer(scene, modelMatrix) {
 
     this.debug = true;
 
-    this._textureCache = {};
-    this._loadingTexture = {};
+    this._textureCache = {}; 
 
     this._uniformMaps = {};
 
@@ -220,7 +219,7 @@ CesiumRenderer.prototype = {
     },
     computeMatrix: function (object, computeModelMatrix) {
         if (object.parent) {
-            this.computeMatrix(object.parent,computeModelMatrix);
+            this.computeMatrix(object.parent, computeModelMatrix);
         }
         scratchTranslation.x = object.position.x;
         scratchTranslation.y = object.position.y;
@@ -261,7 +260,7 @@ CesiumRenderer.prototype = {
 
                     Matrix4.clone(that.modelMatrix, computeModelMatrix);
                     that.computeMatrix(object, computeModelMatrix);
-                    
+
                     //yUpToZUp
                     if (object.up && object.up.y) {
                         Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
@@ -1022,96 +1021,42 @@ CesiumRenderer.prototype = {
             function getTextureCallback(texture3js, mtl) {
                 return function () {
 
-                    if (!that._textureCache[texture3js.uuid] ) {
-                        if (!that._loadingTexture[texture3js.uuid] && texture3js.image) {
-                            Cesium.when(texture3js.image, function (image) {
-
-                                if (image instanceof HTMLImageElement
-                                    || image instanceof HTMLCanvasElement
-                                    || image instanceof HTMLVideoElement
-                                    ) {
-                                    var tex;
-                                    if (defined(image.internalFormat)) {
-                                        tex = new Texture({
-                                            context: frameState.context,
-                                            pixelFormat: image.internalFormat,
-                                            width: image.width,
-                                            height: image.height,
-                                            source: {
-                                                arrayBufferView: image.bufferView
-                                            }
-                                        });
-
-                                    } else {
-                                        tex = new Texture({
-                                            context: frameState.context,
-                                            source: image
-                                        });
-
+                    if (!that._textureCache[texture3js.uuid]) {
+                        if (texture3js.image
+                            && (texture3js.image instanceof HTMLImageElement
+                                    || texture3js.image instanceof HTMLCanvasElement
+                                    || texture3js.image instanceof HTMLVideoElement
+                            )) {
+                            var image = texture3js.image;
+                            var tex;
+                            if (defined(image.internalFormat)) {
+                                tex = new Texture({
+                                    context: frameState.context,
+                                    pixelFormat: image.internalFormat,
+                                    width: image.width,
+                                    height: image.height,
+                                    source: {
+                                        arrayBufferView: image.bufferView
                                     }
+                                });
 
-                                    if (typeof image.src === 'string') {
-                                        mtl.transparent = image.src.startsWith("data:image/png")
-                                                           || image.src.endsWith(".png");
-                                    }
+                            } else {
+                                tex = new Texture({
+                                    context: frameState.context,
+                                    source: image
+                                });
 
+                            }
 
-                                    mtl.needsUpdate = true;
-                                    //var tex = new Cesium.Texture({
-                                    //    context: frameState.context,
-                                    //    source: image
-                                    //});
+                            if (typeof image.src === 'string') {
+                                mtl.transparent = image.src.startsWith("data:image/png")
+                                                   || image.src.endsWith(".png");
+                            }
 
-                                    //tex.flipY = texture3js.flipY;
-                                    //tex.preMultiplyAlpha = texture3js.premultiplyAlpha;
-                                    //tex.sampler._magnificationFilter = texture3js.magFilter;
-                                    //tex.sampler._minificationFilter = texture3js.minFilter;
-                                    //tex.sampler._wrapS = texture3js.wrapS;
-                                    //tex.sampler._wrapT = texture3js.wrapT;
+                            mtl.needsUpdate = true;
 
-                                    that._textureCache[texture3js.uuid] = tex;
-
-                                } else {
-                                    Cesium.loadImage(image).then(function (image) {
-
-                                        var tex;
-                                        if (defined(image.internalFormat)) {
-                                            tex = new Texture({
-                                                context: frameState.context,
-                                                pixelFormat: image.internalFormat,
-                                                width: image.width,
-                                                height: image.height,
-                                                source: {
-                                                    arrayBufferView: image.bufferView
-                                                }
-                                            });
-                                        } else {
-                                            tex = new Texture({
-                                                context: frameState.context,
-                                                source: image
-                                            });
-                                        }
-                                        mtl.needsUpdate = true;
-                                        //tex.flipY = texture3js.flipY;
-                                        //tex.preMultiplyAlpha = texture3js.premultiplyAlpha;
-                                        //tex.sampler._magnificationFilter = texture3js.magFilter;
-                                        //tex.sampler._minificationFilter = texture3js.minFilter;
-                                        //tex.sampler._wrapS = texture3js.wrapS;
-                                        //tex.sampler._wrapT = texture3js.wrapT;
-
-                                        if (typeof image.src === 'string') {
-                                            mtl.transparent = image.src.startsWith("data:image/png")
-                                                               || image.src.endsWith(".png");
-                                        }
-
-                                        that._textureCache[texture3js.uuid] = tex;
-
-                                    })
-                                }
-
-                            });
-                            that._loadingTexture[texture3js.uuid] = true;
-                        } 
+                            that._textureCache[texture3js.uuid] = tex; 
+                        }
 
                         return frameState.context.defaultTexture;
                     } else {
