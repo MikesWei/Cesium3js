@@ -1,189 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>three.js webgl - collada</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<style>
-			body {
-				font-family: Monospace;
-				background-color: #000000;
-				margin: 0px;
-				overflow: hidden;
-			}
+<head>
+    <title>three.js webgl - collada</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
 
-			#info {
-				color: #fff;
-				position: absolute;
-				top: 10px;
-				width: 100%;
-				text-align: center;
-				z-index: 100;
-				display:block;
+        #info {
+            color: #fff;
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+        }
 
-			}
+        a {
+            color: skyblue
+        }
 
-			a { color: skyblue }
-		</style>
-	</head>
-	<body>
-		<div id="info">
-			<a href="http://threejs.org" target="_blank">three.js</a> -
-			monster by <a href="http://www.3drt.com/downloads.htm" target="_blank">3drt</a>
-		</div>
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
 
-		<script src="../build/three.js"></script>
-		<script src="js/loaders/collada/Animation.js"></script>
-		<script src="js/loaders/collada/AnimationHandler.js"></script>
-		<script src="js/loaders/collada/KeyFrameAnimation.js"></script>
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+    </div>
 
-		<script src="js/loaders/ColladaLoader.js"></script>
+    <script src="../ThirdParty/three.js"> </script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"> </script>
+    <script src="../appconfig.js"> </script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+    <script src="js/common.js" type="text/javascript"></script>
+    <div id="info">
+        <a href="http://threejs.org" target="_blank">three.js</a> -
+        monster by <a href="http://www.3drt.com/downloads.htm" target="_blank">3drt</a>
+    </div>
+    <script src="js/loaders/collada/Animation.js"></script>
+    <script src="js/loaders/collada/AnimationHandler.js"></script>
+    <script src="js/loaders/collada/KeyFrameAnimation.js"></script>
+    <script src="js/loaders/ColladaLoader.js"></script>
+    <script src="js/Detector.js"></script>
+    <script src="js/libs/stats.min.js"></script>
+    <script>
 
-		<script src="js/Detector.js"></script>
-		<script src="js/libs/stats.min.js"></script>
+        if (!Detector.webgl) Detector.addGetWebGLMessage();
 
-		<script>
+        var container, stats;
 
-			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+        var camera, scene, renderer, objects;
+        var particleLight;
+        var dae;
+        var loader = new THREE.ColladaLoader();
+        loader.options.convertUpAxis = true;
+        loader.load('./models/collada/monster/monster.dae', function (collada) {
 
-			var container, stats;
+            dae = collada.scene;
 
-			var camera, scene, renderer, objects;
-			var particleLight;
-			var dae;
+            dae.traverse(function (child) {
 
-			var loader = new THREE.ColladaLoader();
-			loader.options.convertUpAxis = true;
-			loader.load( './models/collada/monster/monster.dae', function ( collada ) {
+                if (child instanceof THREE.SkinnedMesh) {
 
-				dae = collada.scene;
+                    var animation = new THREE.Animation(child, child.geometry.animation);
+                    animation.play();
 
-				dae.traverse( function ( child ) {
+                }
 
-					if ( child instanceof THREE.SkinnedMesh ) {
+            });
 
-						var animation = new THREE.Animation( child, child.geometry.animation );
-						animation.play();
+            dae.scale.x = dae.scale.y = dae.scale.z = 0.002;
+            dae.updateMatrix();
 
-					}
+            init();
 
-				} );
+            animate();
 
-				dae.scale.x = dae.scale.y = dae.scale.z = 0.002;
-				dae.updateMatrix();
+        });
 
-				init();
-				animate();
+        function init() {
 
-			} );
+            container = document.createElement('div');
+            document.body.appendChild(container);
 
-			function init() {
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+            camera.position.set(2, 2, 3);
 
-				container = document.createElement( 'div' );
-				document.body.appendChild( container );
+            scene = new THREE.Scene();
 
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
-				camera.position.set( 2, 2, 3 );
+            // Grid
 
-				scene = new THREE.Scene();
+            var size = 14, step = 1;
 
-				// Grid
+            var geometry = new THREE.Geometry();
+            var material = new THREE.LineBasicMaterial({ color: 0x303030 });
 
-				var size = 14, step = 1;
+            for (var i = -size; i <= size; i += step) {
 
-				var geometry = new THREE.Geometry();
-				var material = new THREE.LineBasicMaterial( { color: 0x303030 } );
+                geometry.vertices.push(new THREE.Vector3(-size, -0.04, i));
+                geometry.vertices.push(new THREE.Vector3(size, -0.04, i));
 
-				for ( var i = - size; i <= size; i += step ) {
+                geometry.vertices.push(new THREE.Vector3(i, -0.04, -size));
+                geometry.vertices.push(new THREE.Vector3(i, -0.04, size));
 
-					geometry.vertices.push( new THREE.Vector3( - size, - 0.04, i ) );
-					geometry.vertices.push( new THREE.Vector3(   size, - 0.04, i ) );
+            }
 
-					geometry.vertices.push( new THREE.Vector3( i, - 0.04, - size ) );
-					geometry.vertices.push( new THREE.Vector3( i, - 0.04,   size ) );
+            var line = new THREE.LineSegments(geometry, material);
+            scene.add(line);
 
-				}
+            // Add the COLLADA
+            scene.add(dae);
 
-				var line = new THREE.LineSegments( geometry, material );
-				scene.add( line );
+            particleLight = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            scene.add(particleLight);
 
-				// Add the COLLADA
+            // Lights
 
-				scene.add( dae );
+            scene.add(new THREE.AmbientLight(0xcccccc));
 
-				particleLight = new THREE.Mesh( new THREE.SphereGeometry( 4, 8, 8 ), new THREE.MeshBasicMaterial( { color: 0xffffff } ) );
-				scene.add( particleLight );
+            var directionalLight = new THREE.DirectionalLight(/*Math.random() * 0xffffff*/0xeeeeee);
+            directionalLight.position.x = Math.random() - 0.5;
+            directionalLight.position.y = Math.random() - 0.5;
+            directionalLight.position.z = Math.random() - 0.5;
+            directionalLight.position.normalize();
+            scene.add( directionalLight );
 
-				// Lights
+            var pointLight = new THREE.PointLight(0xffffff, 4);
+            particleLight.add(pointLight);
 
-				scene.add( new THREE.AmbientLight( 0xcccccc ) );
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
 
-				var directionalLight = new THREE.DirectionalLight(/*Math.random() * 0xffffff*/0xeeeeee );
-				directionalLight.position.x = Math.random() - 0.5;
-				directionalLight.position.y = Math.random() - 0.5;
-				directionalLight.position.z = Math.random() - 0.5;
-				directionalLight.position.normalize();
-				scene.add( directionalLight );
+            stats = new Stats();
+            container.appendChild(stats.dom);
 
-				var pointLight = new THREE.PointLight( 0xffffff, 4 );
-				particleLight.add( pointLight );
+            //
 
-				renderer = new THREE.WebGLRenderer();
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				container.appendChild( renderer.domElement );
+            window.addEventListener('resize', onWindowResize, false);
+            cesiumRenderer.render(scene, camera);
+        }
 
-				stats = new Stats();
-				container.appendChild( stats.dom );
+        function onWindowResize() {
 
-				//
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
 
-				window.addEventListener( 'resize', onWindowResize, false );
+            renderer.setSize(window.innerWidth, window.innerHeight);
 
-			}
+        }
 
-			function onWindowResize() {
+        //
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+        function animate() {
 
-				renderer.setSize( window.innerWidth, window.innerHeight );
+            requestAnimationFrame(animate);
 
-			}
+            render();
+            stats.update();
 
-			//
+        }
 
-			function animate() {
+        var clock = new THREE.Clock();
 
-				requestAnimationFrame( animate );
+        function render() {
 
-				render();
-				stats.update();
+            var timer = Date.now() * 0.0005;
 
-			}
+            camera.position.x = Math.cos(timer) * 10;
+            camera.position.y = 2;
+            camera.position.z = Math.sin(timer) * 10;
 
-			var clock = new THREE.Clock();
+            camera.lookAt(scene.position);
 
-			function render() {
+            particleLight.position.x = Math.sin(timer * 4) * 3009;
+            particleLight.position.y = Math.cos(timer * 5) * 4000;
+            particleLight.position.z = Math.cos(timer * 4) * 3009;
 
-				var timer = Date.now() * 0.0005;
+            THREE.AnimationHandler.update(clock.getDelta());
 
-				camera.position.x = Math.cos( timer ) * 10;
-				camera.position.y = 2;
-				camera.position.z = Math.sin( timer ) * 10;
 
-				camera.lookAt( scene.position );
 
-				particleLight.position.x = Math.sin( timer * 4 ) * 3009;
-				particleLight.position.y = Math.cos( timer * 5 ) * 4000;
-				particleLight.position.z = Math.cos( timer * 4 ) * 3009;
+        }
 
-				THREE.AnimationHandler.update( clock.getDelta() );
-
-				renderer.render( scene, camera );
-
-			}
-
-		</script>
-	</body>
+    </script>
+</body>
 </html>
