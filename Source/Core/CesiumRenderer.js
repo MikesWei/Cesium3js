@@ -1,8 +1,11 @@
-﻿/// <reference path="../../ThirdParty/three.js" />
+/// <reference path="../../ThirdParty/three.js" />
 /// <reference path="../../ThirdParty/Cesium/Cesium.js" />
 
 
 var Matrix4 = Cesium.Matrix4;
+var Matrix3 = Cesium.Matrix3;
+var Cartesian3 = Cesium.Cartesian3;
+var CesiumMath = Cesium.Math;
 var DrawCommand = Cesium.DrawCommand;
 var defined = Cesium.defined;
 var GeometryPipeline = Cesium.GeometryPipeline;
@@ -20,7 +23,12 @@ var BlendFunction = Cesium.BlendFunction;
 var StencilFunction = Cesium.StencilFunction;
 var StencilOperation = Cesium.StencilOperation;
 var Texture = Cesium.Texture;
- 
+
+
+
+var yUpToZUp = Matrix4.fromRotationTranslation(Matrix3.fromRotationX(CesiumMath.PI_OVER_TWO));
+var boundingSphereCartesian3Scratch = new Cartesian3();
+var scratchTranslationRtc = new Cartesian3();
 
 //供参考Cesium内置矩阵,通过uniform传到vertexShader中，用于坐标转换
 //Cesium
@@ -106,30 +114,6 @@ var gltfSemanticUniforms = {
     // JOINTMATRIX created in createCommand()
 };
 
-//CesiumRenderer
-function getCommandsFromObject(object, commands) {
-    if (!commands) {
-        commands = [];
-    }
-    if (object.visible === false) return commands;
-
-    if (object.isMesh || object.isLine || object.isPoints) {
-        if (object.commandList && Array.isArray(object.commandList)) {
-            object.commandList.forEach(function (command) {
-                commands.push(command);
-            });
-        }
-    }
-    var children = object.children;
-
-    for (var i = 0, l = children.length; i < l; i++) {
-
-        getCommandsFromObject(children[i], commands);
-
-    }
-    return commands;
-}
-
 //threejs 
 function parseIncludes(string) {
 
@@ -153,6 +137,21 @@ function parseIncludes(string) {
 
 }
 
+var shaderIDs = {
+    MeshDepthMaterial: 'depth',
+    MeshNormalMaterial: 'normal',
+    MeshBasicMaterial: 'basic',
+    MeshLambertMaterial: 'lambert',
+    MeshPhongMaterial: 'phong',
+    MeshToonMaterial: 'phong',
+    MeshStandardMaterial: 'physical',
+    MeshPhysicalMaterial: 'physical',
+    LineBasicMaterial: 'basic',
+    LineDashedMaterial: 'dashed',
+    PointsMaterial: 'points'
+};
+
+
 /**
  *
  *@param {Cesium.Scene}scene
@@ -165,7 +164,6 @@ function CesiumRenderer(scene, modelMatrix) {
    *@type {Cesium.Scene}
    */
     this.scene = scene;
-
     /**
     *@type {Array<Cesium.DrawCommand}
     */
@@ -195,8 +193,18 @@ function CesiumRenderer(scene, modelMatrix) {
 
     this._textureCache = {};
 
+    this._uniformMaps = {};
+
     this.isBuildingDrawCommand = false;
+
+    this._justLoad = true;
 }
+
+var scratchTranslation = new Cartesian3();  
+var scratchQuaternion = new Cesium.Quaternion();
+var scratchScale = new Cartesian3();
+var scratchTranslationQuaternionRotationScale = new Matrix4();
+var computeModelMatrix = new Matrix4();
 
 CesiumRenderer.prototype = {
     /**
@@ -209,7 +217,60 @@ CesiumRenderer.prototype = {
             console.log(info);
         }
     },
+    getCommandsFromObject: function (object, commands) {
+        if (!commands) {
+            commands = [];
+        }
+        if (object.visible === false) return commands;
+        var that = this;
+        if (object.isMesh || object.isLine || object.isPoints) {
+            if (object.commandList && Array.isArray(object.commandList)) {
+                object.commandList.forEach(function (drawCommand) {
+                    Matrix4.clone(that.modelMatrix, computeModelMatrix);
 
+                    scratchTranslation.x = object.position.x;
+                    scratchTranslation.y = object.position.y;
+                    scratchTranslation.z = object.position.z; 
+
+                    scratchScale.x = object.scale.x;
+                    scratchScale.y = object.scale.y;
+                    scratchScale.z = object.scale.z;
+
+                    scratchQuaternion.x = object.quaternion.x;
+                    scratchQuaternion.y = object.quaternion.y;
+                    scratchQuaternion.z = object.quaternion.z;
+                    scratchQuaternion.w = object.quaternion.w;
+
+                    //translate,rotate,scale
+
+                    Matrix4.fromTranslationQuaternionRotationScale(
+                        scratchTranslation, scratchQuaternion,
+                        scratchScale, scratchTranslationQuaternionRotationScale);
+
+                    Matrix4.multiplyTransformation(
+                        computeModelMatrix,
+                        scratchTranslationQuaternionRotationScale,
+                        computeModelMatrix);
+                     
+                    //yUpToZUp
+                    if (object.up && object.up.y) {
+                        Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
+                    }
+
+                    commands.push(drawCommand);
+                });
+            }
+        }
+
+        var children = object.children;
+
+        for (var i = 0, l = children.length; i < l; i++) {
+
+            this.getCommandsFromObject(children[i], commands);
+
+        }
+        return commands;
+    },
     /**
     *
     *@param {Cesium.FrameState}framstate 
@@ -219,20 +280,24 @@ CesiumRenderer.prototype = {
             return;
         }
 
-        if (this.scene3js && this.scene3js.needUpdate) {
+        if (this.scene3js /*&& this.scene3js.needUpdate*/) {
 
             var start = new Date();
 
             this._render(this.scene3js, frameState);
-
+            if (this._justLoad) {
+                this._justLoad = false;
+            }
             this.scene3js.needUpdate = false;
 
-            var commands = getCommandsFromObject(this.scene3js);
+            var commands = this.getCommandsFromObject(this.scene3js);
             if (commands && Array.isArray(commands)) {
                 this.commands = commands;
             }
 
+
             this.debugLog("CesiumRenderer:" + (new Date() - start) + "ms");
+
 
             this.isBuildingDrawCommand = false;
         }
@@ -240,11 +305,13 @@ CesiumRenderer.prototype = {
         if (this.commands) {
 
             this.commands.forEach(function (command) {
+
                 frameState.addCommand(command);
             });
         }
 
     },
+
     /**
      *
      *@param {THREE.Geometry}geometry
@@ -261,19 +328,13 @@ CesiumRenderer.prototype = {
         //var program = setProgram(camera, fog, material, object);
 
         var updateBuffers = false;
-        //var geometryProgram = geometry.id + '_' + program.id + '_' + material.wireframe;
-
-        //if (geometryProgram !== _currentGeometryProgram) {
-
+        //var geometryProgram = geometry.id + '_' + program.id + '_' + material.wireframe; 
+        //if (geometryProgram !== _currentGeometryProgram) { 
         //    _currentGeometryProgram = geometryProgram;
-        //    updateBuffers = true;
-
-        //}
-
-        // morph targets
-
-        /*var morphTargetInfluences = object.morphTargetInfluences;
-
+        //    updateBuffers = true; 
+        //} 
+        // morph targets 
+        /*var morphTargetInfluences = object.morphTargetInfluences; 
         if (morphTargetInfluences !== undefined) {
 
             var activeInfluences = [];
@@ -401,6 +462,14 @@ CesiumRenderer.prototype = {
 
         var cesiumGeometry = this.parseBufferGeometry(geometry, drawStart, drawCount);
         var drawCommand = this.createDrawCommand(cesiumGeometry, material, frameState);
+
+        drawCommand.receiveShadows = false;
+
+        //Matrix4.setTranslation(
+        //    drawCommand.modelMatrix,
+        //    new Cartesian3(object.position.x, object.position.y, object.position.z),
+        //    drawCommand.modelMatrix
+        //);
         if (!object.commandList) {
             object.commandList = [];
         }
@@ -496,6 +565,7 @@ CesiumRenderer.prototype = {
         var opaqueObjects = [];
         var opaqueObjectsLastIndex = -1;
         var transparentObjectsLastIndex = -1;
+        var that = this;
 
         function pushRenderItem(object, geometry, material, group) {
 
@@ -560,11 +630,45 @@ CesiumRenderer.prototype = {
                 var material = object.material;
 
                 if (material.visible === true) {
-                    var geometry;
-                    if (object.geometry && object.geometry instanceof THREE.BufferGeometry) {
-                        geometry = object.geometry;
+                    var geometry = object.geometry;
+
+                    if (geometry && geometry instanceof THREE.BufferGeometry) {
+
+                        if (!geometry.needsUpdate && !that._justLoad) {
+                            return;
+                        }
+
+                        object.geometry.needsUpdate = false;
+
                     } else {
-                        geometry = new THREE.BufferGeometry().setFromObject(object)
+
+
+
+                        if (
+                             geometry.elementsNeedUpdate
+                             || geometry.verticesNeedUpdate
+                             || geometry.uvsNeedUpdate
+                             || geometry.normalsNeedUpdate
+                             || geometry.colorsNeedUpdate
+                             || geometry.lineDistancesNeedUpdate
+                             || geometry.groupsNeedUpdate
+                             || that._justLoad
+                            ) {
+
+                            geometry.elementsNeedUpdate = false;
+                            geometry.verticesNeedUpdate = false;
+                            geometry.uvsNeedUpdate = false;
+                            geometry.normalsNeedUpdate = false;
+                            geometry.colorsNeedUpdate = false;
+                            geometry.lineDistancesNeedUpdate = false;
+                            geometry.groupsNeedUpdate = false;
+
+
+                            geometry = new THREE.BufferGeometry().setFromObject(object);
+                        }
+                        else {
+                            return;
+                        }
                     }
 
                     if (material.isMultiMaterial) {
@@ -606,7 +710,7 @@ CesiumRenderer.prototype = {
         projectObject(scene);
 
 
-        var that = this;
+
         function rotate(geometry, object) {
             if (object.rotation && object.rotation.order) {
                 var rotate1 = "rotate" + object.rotation.order[0];
@@ -638,24 +742,19 @@ CesiumRenderer.prototype = {
                 var object = renderItem.object;
                 var geometry = renderItem.geometry.clone();
 
+                //if (object.position.x !== 0
+                //    || object.position.y !== 0
+                //    || object.position.z !== 0) {
+                //    geometry.translate(object.position.x, object.position.y, object.position.z);
+                //}
+                //if (object.scale.x !== 1
+                //   || object.scale.y !== 1
+                //   || object.scale.z !== 1) {
+                //    geometry.scale(object.scale.x, object.scale.y, object.scale.z);
+                //}
 
+                //rotate(geometry, object);
 
-                if (object.position.x !== 0
-                    || object.position.y !== 0
-                    || object.position.z !== 0) {
-                    geometry.translate(object.position.x, object.position.y, object.position.z);
-                }
-                if (object.scale.x !== 1
-                   || object.scale.y !== 1
-                   || object.scale.z !== 1) {
-                    geometry.scale(object.scale.x, object.scale.y, object.scale.z);
-                }
-                //geometry.rotateX(object.rotation.x);
-                //geometry.rotateY(object.rotation.y);
-                //geometry.rotateZ(object.rotation.z);
-                rotate(geometry, object);
-
-                geometry.rotateX(Math.PI / 2.0);
 
                 var material = !overrideMaterial ? renderItem.material : overrideMaterial;
                 var group = renderItem.group;
@@ -835,9 +934,9 @@ CesiumRenderer.prototype = {
 
         command.renderState = RenderState.fromCache(defaults);
         var translucent = true;
-        if (material.transparent ) {
-            command.renderState.depthMask = false; 
-            Object.assign(command.renderState.blending,BlendingState.ALPHA_BLEND)
+        if (material.transparent) {
+            command.renderState.depthMask = false;
+            Object.assign(command.renderState.blending, BlendingState.ALPHA_BLEND)
         } else {
             command.renderState.depthMask = true;
         }
@@ -846,45 +945,52 @@ CesiumRenderer.prototype = {
     *
     *
     *@param {THREE.Material}material
-    *@param {Cesium.DrawCommand}command
+    *@param {Cesium.DrawCommand}drawCommand
     *@param {Cesium.FrameState}frameState
     *@private
     */
-    createUniformMap: function (material, command, frameState) {
-        command.uniformMap = {};
+    createUniformMap: function (material, drawCommand, frameState) {
+        if (this._uniformMaps[material.uuid] && !material.needsUpdate) {
+            drawCommand.uniformMap = this._uniformMaps[material.uuid];
+            return;
+        }
+        var uniformMap = {};
+        this._uniformMaps[material.uuid] = uniformMap;
+        drawCommand.uniformMap = this._uniformMaps[material.uuid];
+        material.needsUpdate = false;
 
         //base matrix
-        command.uniformMap.u_normalMatrix = function () {
+        uniformMap.u_normalMatrix = function () {
             return frameState.context.uniformState.normal;
         }
-        command.uniformMap.u_projectionMatrix = function () {
+        uniformMap.u_projectionMatrix = function () {
             return frameState.context.uniformState.projection;
         }
 
-        command.uniformMap.u_modelViewMatrix = function () {
+        uniformMap.u_modelViewMatrix = function () {
             return frameState.context.uniformState.modelView;
         }
         //base matrix for threejs
-        command.uniformMap.normalMatrix = function () {
+        uniformMap.normalMatrix = function () {
             return frameState.context.uniformState.normal;
         }
-        command.uniformMap.projectionMatrix = function () {
+        uniformMap.projectionMatrix = function () {
             return frameState.context.uniformState.projection;
         }
 
-        command.uniformMap.modelViewMatrix = function () {
+        uniformMap.modelViewMatrix = function () {
             return frameState.context.uniformState.modelView;
         }
-        command.uniformMap.modelMatrix = function () {
+        uniformMap.modelMatrix = function () {
             return frameState.context.uniformState.model;
         }
-        command.uniformMap.u_modelMatrix = function () {
+        uniformMap.u_modelMatrix = function () {
             return frameState.context.uniformState.model;
         }
-        command.uniformMap.u_viewMatrix = function () {
+        uniformMap.u_viewMatrix = function () {
             return frameState.context.uniformState.view;
         }
-        command.uniformMap.viewMatrix = function () {
+        uniformMap.viewMatrix = function () {
             return frameState.context.uniformState.view;
         }
 
@@ -980,16 +1086,28 @@ CesiumRenderer.prototype = {
                 }
             }
 
-            command.uniformMap["u_diffuse"] = function () {
+            uniformMap["u_diffuse"] = function () {
                 var color = Cesium.Color.SKYBLUE;
                 if (material["color"]) {
                     color = new Cesium.Color(material["color"].r, material["color"].g, material["color"].b, material["color"].a);
                 }
                 return color;
             }
+
+
+
+            uniformMap["u_specular"] = function () {
+                if (material.specular) {
+                    return new Cesium.Color(material["specular"].r, material["specular"].g, material["specular"].b);
+                } else {
+                    return new Cesium.Color(0.0, 0, 0);
+
+                }
+            }
+
             if (material["map"] && material["map"].isTexture) {
 
-                command.uniformMap["u_diffuseMap"] = getTextureCallback(material["map"]);
+                uniformMap["u_diffuseMap"] = getTextureCallback(material["map"]);
 
             }
 
@@ -1003,23 +1121,23 @@ CesiumRenderer.prototype = {
 
                         if (item.value.isVector2) {
 
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 return new Cesium.Cartesian2(item.value.x, item.value.y);
                             }
                         } else if (typeof item.value === 'number') {
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 return item.value;
                             }
                         } else if (item.value.isVector3) {
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 return new Cesium.Cartesian3(item.value.x, item.value.y, item.value.z);
                             }
                         } else if (item.value.isVector4) {
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 return new Cesium.Cartesian4(item.value.x, item.value.y, item.value.z, item.value.w);
                             }
                         } else if (item.value.isCubeTexture) {
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 if (!that._textureCache[item.value.uuid]) {
                                     that._textureCache[item.value.uuid] = new Cesium.CubeMap({
                                         context: frameState.context,
@@ -1037,14 +1155,14 @@ CesiumRenderer.prototype = {
 
                             }
                         } else if (item.value.isTexture) {
-                            command.uniformMap[name] = getTextureCallback(item.value);
+                            uniformMap[name] = getTextureCallback(item.value);
                         } else if (item.value.isMatrix4) {
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 return Matrix4.fromArray(item.value.elements);
 
                             }
                         } else if (item.value.isColor) {
-                            command.uniformMap[name] = function () {
+                            uniformMap[name] = function () {
                                 return new Cesium.Color(item.value.r, item.value.g, item.value.b, item.value.a);
 
                             }
@@ -1076,6 +1194,9 @@ CesiumRenderer.prototype = {
     *@return {String}  
     */
     getVertexShaderSource: function (geometry, material) {
+        //var shaderID = shaderIDs[material.type];
+        //var vertexShader = THREE.ShaderLib[shaderID].vertexShader;
+        //material.vertexShader = vertexShader;
 
         function getAttributeDefineBlok(userDefine) {
             var glsl = "";
@@ -1196,6 +1317,10 @@ CesiumRenderer.prototype = {
      *@return {String} 
      */
     getFragmentShaderSource: function (geometry, material) {
+        //var shaderID = shaderIDs[material.type];
+        //var vertexShader = THREE.ShaderLib[shaderID].fragmentShader;
+        //material.vertexShader = vertexShader;
+
         if (material.fragmentShader) {
             var fs = parseIncludes(material.fragmentShader);
             return fs;
@@ -1208,6 +1333,7 @@ CesiumRenderer.prototype = {
                 \n";
 
         fs += "uniform vec4 u_diffuse;\n";
+        fs += "uniform vec4 u_specular;\n";
         if (geometry.attributes.uv && material.map && material.map.isTexture) {
 
             fs += "uniform sampler2D u_diffuseMap;\n";
@@ -1235,16 +1361,16 @@ CesiumRenderer.prototype = {
 
         }
         else
-            if (!material.color && geometry.attributes.color) {
+            if (geometry.attributes.color) {
                 fs += "material.diffuse = v_color.rgb;\n\
                            material.alpha = v_color.a;\n";
 
             } else {
-                fs += "material.diffuse = u_diffuse.rgb;\n\
+                fs += "material.diffuse = u_diffuse.rgb+u_specular.rgb;\n\
                            material.alpha = u_diffuse.a;\n";
             }
 
-        fs += "gl_FragColor = czm_phong(normalize(positionToEyeEC), material);\n\
+        fs += "gl_FragColor =czm_phong(normalize(positionToEyeEC), material);\n\
                 }\n\
                 ";
         fs = parseIncludes(fs);
@@ -1290,13 +1416,16 @@ CesiumRenderer.prototype = {
 
             if (geometry.attributes.hasOwnProperty(attrName)) {
                 var attr = geometry.getAttribute(attrName);
-                attributes[attrName] = new Cesium.GeometryAttribute({
-                    componentDatatype: this.getAttributeComponentType(attr.array),
-                    componentsPerAttribute: attr.itemSize,
-                    values: attr.array,
-                    normalize: attr.normalized
-                });
+                if (attr && attr.array.length > 0) {
 
+                    attributes[attrName] = new Cesium.GeometryAttribute({
+                        componentDatatype: this.getAttributeComponentType(attr.array),
+                        componentsPerAttribute: attr.itemSize,
+                        values: attr.array,
+                        normalize: attr.normalized
+                    });
+
+                }
 
             }
         }
@@ -1361,13 +1490,22 @@ CesiumRenderer.prototype = {
         return attributeComponentType;
 
     },
+
     /**
     *@param {THREE.Scene}scene3js
     */
     render: function (scene3js) {
-        if (this.scene3js && this.scene3js !== scene3js) {
-            this.scene3js.dispose();
+        if ((this.scene3js && this.scene3js !== scene3js)
+            || !this.scene3js) {
+
+            if (this.scene3js) {
+                //  this.scene3js.dispose();
+            }
+
+
+            this._justLoad = true;
         }
+
         if (this.isBuildingDrawCommand) {
             return;
         }
