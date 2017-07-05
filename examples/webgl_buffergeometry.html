@@ -1,78 +1,81 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<title>three.js webgl - buffergeometry</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-<style>
-    body {
-        color: #cccccc;
-        font-family: Monospace;
-        font-size: 13px;
-        text-align: center;
-        background-color: #050505;
-        margin: 0px;
-        overflow: hidden;
-    }
-    html, body {
-        width: 100%;
-        height: 100%;
-        height: -moz-calc(100% );
-        height: -webkit-calc(100%);
-        height: cal(100%);
-        width: -moz-calc(100% );
-        width: -webkit-calc(100%);
-        width: cal(100%);
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-    }
-    #info {
-        position: absolute;
-        top: 0px;
-        width: 100%;
-        padding: 5px;
-    }
+    <title>three.js webgl - buffergeometry</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            color: #cccccc;
+            font-family: Monospace;
+            font-size: 13px;
+            text-align: center;
+            background-color: #050505;
+            margin: 0px;
+            overflow: hidden;
+        }
 
-    a {
-        color: #0080ff;
-    }
-    #cesiumContainer {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        height: -moz-calc(100% - 0px );
-        height: -webkit-calc(100% - 0px );
-        height: cal(100% - 0px);
-        font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
-    }
-</style>
-<link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
-<script src="../ThirdParty/Cesium/Cesium.js"></script>
-<script src="../ThirdParty/three.js"></script>
-<script src="../build/Cesium3js.js"></script>
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 5px;
+        }
+
+        a {
+            color: #0080ff;
+        }
+
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+    <script src="../ThirdParty/Cesium/Cesium.js"></script>
+    <script src="../ThirdParty/three.js"></script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+
 </head>
 <body>
     <div id="cesiumContainer">
     </div>
     <div id="creditContainer" style="display: none;">
     </div>
-
     <script src="js/common.js"></script>
     <div id="container"></div>
     <div id="info"><a href="http://threejs.org" target="_blank">three.js</a> webgl - buffergeometry</div>
 
 
-    
+
     <script src="js/Detector.js"></script>
     <script src="js/libs/stats.min.js"></script>
 
     <script>
-        
-   
+
+
         if (!Detector.webgl) Detector.addGetWebGLMessage();
 
         var container, stats;
@@ -224,7 +227,7 @@
                 color: 0xaaaaaa, specular: 0xffffff, shininess: 250,
                 side: THREE.DoubleSide, vertexColors: THREE.VertexColors
             });
-            
+
             mesh = new THREE.Mesh(geometry, material);
             scene.add(mesh);
 
@@ -264,7 +267,7 @@
 
         function animate() {
 
-           // requestAnimationFrame(animate);
+            requestAnimationFrame(animate);
 
             render();
             stats.update();
@@ -278,9 +281,9 @@
             mesh.rotation.x = time * 0.25;
             mesh.rotation.y = time * 0.5;
 
-          //  renderer.render(scene, camera);
-            
-            threeScene.setScene3js(scene)
+            //  renderer.render(scene, camera);
+
+            cesiumRenderer.render(scene, camera);
         }
 
     </script>
