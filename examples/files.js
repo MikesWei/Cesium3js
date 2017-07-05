@@ -10,6 +10,7 @@ var files = {
 		"webgl_shadowmap",
 	],
 	"webgl / advanced": [
+		"webgl_buffergeometry",
 		"webgl_buffergeometry_custom_attributes_particles",
 		"webgl_custom_attributes_lines",
 		"webgl_custom_attributes_points",
