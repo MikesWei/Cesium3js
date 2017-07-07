@@ -23,7 +23,7 @@ var BlendFunction = Cesium.BlendFunction;
 var StencilFunction = Cesium.StencilFunction;
 var StencilOperation = Cesium.StencilOperation;
 var Texture = Cesium.Texture;
-
+var WebGLConstants = Cesium.WebGLConstants;
 
 
 var yUpToZUp = Matrix4.fromRotationTranslation(Matrix3.fromRotationX(CesiumMath.PI_OVER_TWO));
@@ -191,7 +191,7 @@ function CesiumRenderer(scene, modelMatrix) {
 
     this.debug = true;
 
-    this._textureCache = {}; 
+    this._textureCache = {};
 
     this._uniformMaps = {};
 
@@ -263,7 +263,7 @@ CesiumRenderer.prototype = {
 
                     //yUpToZUp
                     if (object.up && object.up.y) {
-                       Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
+                        Matrix4.multiplyTransformation(computeModelMatrix, yUpToZUp, drawCommand._modelMatrix);
                     }
                     var mtl = object.material;
                     if (mtl.isMultiMaterial) {
@@ -301,6 +301,9 @@ CesiumRenderer.prototype = {
     *@param {Cesium.FrameState}framstate 
     */
     update: function (frameState) {
+        if (frameState.mode === Cesium.SceneMode.MORPHING) {
+            return;
+        }
         if (!this._ready) {
             return;
         }
@@ -486,6 +489,12 @@ CesiumRenderer.prototype = {
 
 
         var cesiumGeometry = this.parseBufferGeometry(geometry, drawStart, drawCount);
+        if (object.isMesh) {
+
+            if (material.wireframe === true) {
+                cesiumGeometry = Cesium.GeometryPipeline.toWireframe(cesiumGeometry);
+            }
+        }
         var drawCommand = this.createDrawCommand(cesiumGeometry, material, frameState);
 
         drawCommand.receiveShadows = false;
@@ -503,6 +512,7 @@ CesiumRenderer.prototype = {
         } else {
             object.commandList[0] = drawCommand;
         }
+
 
 
         if (object.isMesh) {
@@ -934,20 +944,20 @@ CesiumRenderer.prototype = {
                 functionDestinationAlpha: BlendFunction.ZERO
             },
             stencilTest: {
-                enabled: false,
-                frontFunction: StencilFunction.ALWAYS,
-                backFunction: StencilFunction.ALWAYS,
-                reference: 0,
+                enabled: true,
+                frontFunction: WebGLConstants.ALWAYS,
+                backFunction: WebGLConstants.ALWAYS,
+                // reference: stencilReference,
                 mask: ~0,
                 frontOperation: {
-                    fail: StencilOperation.KEEP,
-                    zFail: StencilOperation.KEEP,
-                    zPass: StencilOperation.KEEP
+                    fail: WebGLConstants.KEEP,
+                    zFail: WebGLConstants.KEEP,
+                    zPass: WebGLConstants.REPLACE
                 },
                 backOperation: {
-                    fail: StencilOperation.KEEP,
-                    zFail: StencilOperation.KEEP,
-                    zPass: StencilOperation.KEEP
+                    fail: WebGLConstants.KEEP,
+                    zFail: WebGLConstants.KEEP,
+                    zPass: WebGLConstants.REPLACE
                 }
             },
             sampleCoverage: {
@@ -975,7 +985,7 @@ CesiumRenderer.prototype = {
     *@private
     */
     createUniformMap: function (material, drawCommand, frameState) {
-        if (this._uniformMaps[material.uuid] && !material.needsUpdate&&!this._justLoad) {
+        if (this._uniformMaps[material.uuid] && !material.needsUpdate && !this._justLoad) {
             drawCommand.uniformMap = this._uniformMaps[material.uuid];
             return;
         }
@@ -1059,7 +1069,7 @@ CesiumRenderer.prototype = {
 
                             mtl.needsUpdate = true;
 
-                            that._textureCache[texture3js.uuid] = tex; 
+                            that._textureCache[texture3js.uuid] = tex;
                         }
 
                         return frameState.context.defaultTexture;
@@ -1347,7 +1357,7 @@ CesiumRenderer.prototype = {
             fs += "material.alpha = diffuse.a;\n";
 
         }
-        else if (geometry.attributes.color) {
+        else if (!material.color && geometry.attributes.color) {
             fs += "material.diffuse = v_color.rgb;\n\
                            material.alpha = v_color.a;\n";
 
@@ -1420,7 +1430,7 @@ CesiumRenderer.prototype = {
 
             }
         }
-       
+
         var index = geometry.getIndex();
         var indices = new Int32Array(drawCount);
         if (!index) {
@@ -1486,10 +1496,10 @@ CesiumRenderer.prototype = {
     /**
     *@param {THREE.Scene}scene3js
     */
-    render: function (scene3js,camera3js,forceReload) {
+    render: function (scene3js, camera3js, forceReload) {
         if ((this.scene3js && this.scene3js !== scene3js)
             || !this.scene3js || forceReload) {
-             
+
             this._justLoad = true;
         }
 
