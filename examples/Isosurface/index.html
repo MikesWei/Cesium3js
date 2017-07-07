@@ -76,9 +76,7 @@
             </p>
             <p>
                 <select id="mesher">
-                    <option value="Marching Cubes">Marching Cubes</option>
-                    <option value="Marching Tetraheda">Marching Tetraheda</option>
-                    <option value="Naive Surface Nets">Naive Surface Nets</option>
+                   
                 </select>
             </p>
             <p>
@@ -197,7 +195,10 @@
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
 
-            var material = new THREE.MeshNormalMaterial();
+            var material = new THREE.MeshBasicMaterial({
+                color: "#00a6ac"
+            });
+            // new THREE.MeshNormalMaterial();
             surfacemesh = new THREE.Mesh(geometry, material);
             surfacemesh.doubleSided = true;
             var wirematerial = new THREE.MeshBasicMaterial({
@@ -216,7 +217,7 @@
             wiremesh.position.y = surfacemesh.position.y = -(bb.max.y + bb.min.y) / 2.0;
             wiremesh.position.z = surfacemesh.position.z = -(bb.max.z + bb.min.z) / 2.0;
 
-            cesiumRenderer.render(scene);
+            cesiumRenderer.render(scene,camera,true);
         }
 
         THREE.Vector3.prototype.crossSelf = function (a) {
@@ -307,7 +308,7 @@
             // loop on request animation loop
             // - it has to be at the begining of the function
             // - see details at http://my.opera.com/emoller/blog/2011/12/20/requestanimationframe-for-smart-er-animating
-            //requestAnimationFrame(animate);
+            requestAnimationFrame(animate);
 
             // do the render
             render();
@@ -324,10 +325,18 @@
             // update camera controls
             //cameraControls.update();
 
-            surfacemesh.visible = document.getElementById("showfacets").checked;
-            wiremesh.visible = document.getElementById("showedges").checked;
+            var visibleChanged = false;
+            if (surfacemesh.visible !== document.getElementById("showfacets").checked) {
+                surfacemesh.visible = document.getElementById("showfacets").checked;
+                visibleChanged = true;
+            }
+            if (wiremesh.visible !== document.getElementById("showedges").checked) {
+                visibleChanged = true; 
+                wiremesh.visible = document.getElementById("showedges").checked;
+            }
+            
 
-			cesiumRenderer.render(scene);
+            cesiumRenderer.render(scene, camera, visibleChanged);
             //threeScene.setScene3js(scene);
             // actually render the scene
            // renderer.render(scene, camera);
@@ -336,10 +345,7 @@
     <div style="cursor: pointer; width: 80px; opacity: 0.9; z-index: 10001; position: absolute;
         bottom: 0px;">
         <div style="text-align: left; line-height: 1.2em; padding: 0px 0px 3px 3px; background-color: rgb(8, 8, 24);">
-            <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9px; color: rgb(0, 255, 255);
-                font-weight: bold;">
-                49 FPS (0-60)
-            </div>
+            
             <div style="position: relative; width: 74px; height: 30px; background-color: rgb(0, 255, 255);">
                 <span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
                 </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
