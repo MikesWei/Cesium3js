@@ -23,8 +23,44 @@
     <script src="./Isosurface/marchingtetrahedra.js"></script>
     <script src="./Isosurface/surfacenets.js"></script>
     <script src="./Isosurface/perlinnoise.js"></script>
-    <script src="./Isosurface/testdata.js"></script>
-    <link href="http://mikolalysenko.github.io/Isosurface/css/main.css" rel="stylesheet">
+    <script src="./Isosurface/testdata.js"></script> 
+	body {
+	overflow	: hidden;
+	padding		: 0;
+	margin		: 0;
+
+	color		: #222;
+	background-color: #BBB;
+	font-family	: arial;
+	font-size	: 100%;
+}
+#info .top {
+	position	: absolute;
+	top		: 0px;
+	width		: 100%;
+	padding		: 5px;
+	text-align	: center;
+}
+#info a {
+	color		: #66F;
+	text-decoration	: none;
+}
+#info a:hover {
+	text-decoration	: underline;
+}
+#info .bottom {
+	position	: absolute;
+	bottom		: 0px;
+	right		: 5px;
+	padding		: 5px;
+}
+
+#info .controls {
+	position	: absolute;
+	top		: 10px;
+	left		: 10px;
+	padding		: 5px;
+}
 	<style>
 	.cesium-viewer-toolbar{
 	z-index:9999;
