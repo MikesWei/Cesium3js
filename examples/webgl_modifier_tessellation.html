@@ -1,91 +1,132 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>three.js webgl - modifier - tessellation</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<style>
-			body {
-				color: #ffffff;
-				font-family:Monospace;
-				font-size:13px;
-				text-align:center;
-				font-weight: bold;
+<head>
+    <title>three.js webgl - modifier - tessellation</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            color: #ffffff;
+            font-family: Monospace;
+            font-size: 13px;
+            text-align: center;
+            font-weight: bold;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
 
-				background-color: #000000;
-				margin: 0px;
-				overflow: hidden;
-			}
-			#info {
-				color: #fff;
-				position: absolute;
-				top: 0px; width: 100%;
-				padding: 5px;
-				z-index:100;
-			}
+        #info {
+            color: #fff;
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 5px;
+            z-index: 100;
+        }
 
-			a { color: red }
-		</style>
-	</head>
+        a {
+            color: red
+        }
 
-	<body>
-		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - modifier tessellation</div>
-		<div id="container"></div>
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
 
-		<script src="../build/three.js"></script>
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+    </div>
 
-		<script src="js/controls/TrackballControls.js"></script>
+    <script src="../ThirdParty/three.js"> </script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"> </script>
+    <script src="../appconfig.js"> </script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+    <script src="js/common.js" type="text/javascript"></script>
 
-		<script src="js/modifiers/ExplodeModifier.js"></script>
-		<script src="js/modifiers/TessellateModifier.js"></script>
+    <div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - modifier tessellation</div>
+    <div id="container"></div>
 
-		<script src="js/Detector.js"></script>
-		<script src="js/libs/stats.min.js"></script>
+    <script src="../build/three.js"></script>
 
-		<script type="x-shader/x-vertex" id="vertexshader">
+    <script src="js/controls/TrackballControls.js"></script>
 
-			uniform float amplitude;
+    <script src="js/modifiers/ExplodeModifier.js"></script>
+    <script src="js/modifiers/TessellateModifier.js"></script>
 
-			attribute vec3 customColor;
-			attribute vec3 displacement;
+    <script src="js/Detector.js"></script>
+    <script src="js/libs/stats.min.js"></script>
 
-			varying vec3 vNormal;
-			varying vec3 vColor;
+    <script type="x-shader/x-vertex" id="vertexshader">
 
-			void main() {
+        uniform float amplitude;
 
-				vNormal = normal;
-				vColor = customColor;
+        attribute vec3 customColor;
+        attribute vec3 displacement;
 
-				vec3 newPosition = position + normal * amplitude * displacement;
-				gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
+        varying vec3 vNormal;
+        varying vec3 vColor;
 
-			}
+        void main() {
 
-		</script>
+        vNormal = normal;
+        vColor = customColor;
 
-		<script type="x-shader/x-fragment" id="fragmentshader">
+        vec3 newPosition = position + normal * amplitude * displacement;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
 
-			varying vec3 vNormal;
-			varying vec3 vColor;
+        }
 
-			void main() {
+    </script>
 
-				const float ambient = 0.4;
+    <script type="x-shader/x-fragment" id="fragmentshader">
 
-				vec3 light = vec3( 1.0 );
-				light = normalize( light );
+        varying vec3 vNormal;
+        varying vec3 vColor;
 
-				float directional = max( dot( vNormal, light ), 0.0 );
+        void main() {
 
-				gl_FragColor = vec4( ( directional + ambient ) * vColor, 1.0 );
+        const float ambient = 0.4;
 
-			}
+        vec3 light = vec3( 1.0 );
+        light = normalize( light );
 
-		</script>
+        float directional = max( dot( vNormal, light ), 0.0 );
+
+        gl_FragColor = vec4( ( directional + ambient ) * vColor, 1.0 );
+
+        }
+
+    </script>
 
 
-		<script>
+    <script>
 
 		if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
@@ -218,7 +259,7 @@
 			//
 
 			window.addEventListener( 'resize', onWindowResize, false );
-
+			cesiumRenderer.render(scene, camera,true);
 		}
 
 		function onWindowResize() {
@@ -248,12 +289,13 @@
 
 			controls.update();
 
-			renderer.render( scene, camera );
+			cesiumRenderer.render(scene, camera);
+			//renderer.render( scene, camera );
 
 		}
 
 
-	</script>
+    </script>
 
 </body>
 
