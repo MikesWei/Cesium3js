@@ -1,5 +1,6 @@
 /// <reference path="../../ThirdParty/three.js" />
 /// <reference path="../../ThirdParty/Cesium/Cesium.js" />
+/// <reference path="webgl/WebGLProgram.js" />
 
 
 var Matrix4 = Cesium.Matrix4;
@@ -24,7 +25,6 @@ var StencilFunction = Cesium.StencilFunction;
 var StencilOperation = Cesium.StencilOperation;
 var Texture = Cesium.Texture;
 var WebGLConstants = Cesium.WebGLConstants;
-
 
 var yUpToZUp = Matrix4.fromRotationTranslation(Matrix3.fromRotationX(CesiumMath.PI_OVER_TWO));
 var boundingSphereCartesian3Scratch = new Cartesian3();
@@ -198,6 +198,12 @@ function CesiumRenderer(scene, modelMatrix) {
     this.isBuildingDrawCommand = false;
 
     this._justLoad = true;
+
+    this._transparentObjects = [];
+    this._opaqueObjects = [];
+    this._opaqueObjectsLastIndex = -1;
+    this._transparentObjectsLastIndex = -1;
+
 }
 
 var scratchTranslation = new Cartesian3();
@@ -307,10 +313,10 @@ CesiumRenderer.prototype = {
         if (!this._ready) {
             return;
         }
-
-        if (this.scene3js /*&& this.scene3js.needUpdate*/) {
-
-            var start = new Date();
+        var that = this;
+        if (this.scene3js && !this.isBuildingDrawCommand/*&& this.scene3js.needUpdate*/) {
+            this.isBuildingDrawCommand = true;
+            //var start = new Date();
 
             this._render(this.scene3js, frameState);
             if (this._justLoad) {
@@ -324,17 +330,16 @@ CesiumRenderer.prototype = {
             }
 
 
-            this.debugLog("CesiumRenderer:" + (new Date() - start) + "ms");
+            this.debugLog(commands.length);//"CesiumRenderer:" + (new Date() - start) + "ms");
 
+            that.isBuildingDrawCommand = false;
 
-            this.isBuildingDrawCommand = false;
         }
 
         if (this.commands) {
-
             this.commands.forEach(function (command) {
-
                 frameState.addCommand(command);
+
             });
         }
 
@@ -351,74 +356,7 @@ CesiumRenderer.prototype = {
      */
     renderBufferDirect: function (geometry, material, object, group, frameState) {
 
-        //setMaterial( material );
-
-        //var program = setProgram(camera, fog, material, object);
-
         var updateBuffers = false;
-        //var geometryProgram = geometry.id + '_' + program.id + '_' + material.wireframe; 
-        //if (geometryProgram !== _currentGeometryProgram) { 
-        //    _currentGeometryProgram = geometryProgram;
-        //    updateBuffers = true; 
-        //} 
-        // morph targets 
-        /*var morphTargetInfluences = object.morphTargetInfluences; 
-        if (morphTargetInfluences !== undefined) {
-    
-            var activeInfluences = [];
-    
-            for (var i = 0, l = morphTargetInfluences.length; i < l; i++) {
-    
-                var influence = morphTargetInfluences[i];
-                activeInfluences.push([influence, i]);
-    
-            }
-    
-            activeInfluences.sort(absNumericalSort);
-    
-            if (activeInfluences.length > 8) {
-    
-                activeInfluences.length = 8;
-    
-            }
-    
-            var morphAttributes = geometry.morphAttributes;
-    
-            for (var i = 0, l = activeInfluences.length; i < l; i++) {
-    
-                var influence = activeInfluences[i];
-                morphInfluences[i] = influence[0];
-    
-                if (influence[0] !== 0) {
-    
-                    var index = influence[1];
-    
-                    if (material.morphTargets === true && morphAttributes.position) geometry.addAttribute('morphTarget' + i, morphAttributes.position[index]);
-                    if (material.morphNormals === true && morphAttributes.normal) geometry.addAttribute('morphNormal' + i, morphAttributes.normal[index]);
-    
-                } else {
-    
-                    if (material.morphTargets === true) geometry.removeAttribute('morphTarget' + i);
-                    if (material.morphNormals === true) geometry.removeAttribute('morphNormal' + i);
-    
-                }
-    
-            }
-    
-            for (var i = activeInfluences.length, il = morphInfluences.length; i < il; i++) {
-    
-                morphInfluences[i] = 0.0;
-    
-            }
-    
-            //program.getUniforms().setValue(
-            //    _gl, 'morphTargetInfluences', morphInfluences);
-    
-            updateBuffers = true;
-    
-        }
-        */
-        //
 
         var index = geometry.index;
         var position = geometry.attributes.position;
@@ -426,37 +364,9 @@ CesiumRenderer.prototype = {
 
         if (material.wireframe === true) {
 
-            //index = objects.getWireframeAttribute(geometry);
             rangeFactor = 2;
 
         }
-
-        var renderer;
-
-        if (index !== null) {
-
-            //renderer = indexedBufferRenderer;
-            //renderer.setIndex(index);
-
-        } else {
-
-            // renderer = bufferRenderer;
-
-        }
-
-        //if (updateBuffers) {
-
-        //    setupVertexAttributes(material, program, geometry);
-
-        //    if (index !== null) {
-
-        //        _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, objects.getAttributeBuffer(index));
-
-        //    }
-
-        //}
-
-        //
 
         var dataCount = 0;
 
@@ -467,10 +377,6 @@ CesiumRenderer.prototype = {
         } else if (position !== undefined) {
 
             dataCount = position.count;
-            //index=new Int32Array(dataCount);
-            //for (var i = 0; i < length; i++) {
-            //    index[i] = i;
-            //}
         }
 
         var rangeStart = geometry.drawRange.start * rangeFactor;
@@ -499,11 +405,10 @@ CesiumRenderer.prototype = {
 
         drawCommand.receiveShadows = false;
 
-        //Matrix4.setTranslation(
-        //    drawCommand.modelMatrix,
-        //    new Cartesian3(object.position.x, object.position.y, object.position.z),
-        //    drawCommand.modelMatrix
-        //);
+        //if (!drawCommand.uniformMap.u_diffuseMap
+        //    && drawCommand._shaderProgram._fragmentShaderText.indexOf("u_diffuseMap") >= 0) {
+        //    return
+        //}
         if (!object.commandList) {
             object.commandList = [];
         }
@@ -512,8 +417,6 @@ CesiumRenderer.prototype = {
         } else {
             object.commandList[0] = drawCommand;
         }
-
-
 
         if (object.isMesh) {
 
@@ -588,16 +491,12 @@ CesiumRenderer.prototype = {
         }
 
     },
-    /**
-     *
-     *@param {THREE.Scene}scene
-     *@private
-     */
-    _render: function (scene, frameState) {
 
+    updateRenderQueue: function (scene, frameState) {
         var opaqueObjectsLastIndex = 0;
-        var transparentObjects = [];
-        var opaqueObjects = [];
+
+        var transparentObjects = this._transparentObjects;
+        var opaqueObjects = this._opaqueObjects;
         var opaqueObjectsLastIndex = -1;
         var transparentObjectsLastIndex = -1;
         var that = this;
@@ -700,6 +599,9 @@ CesiumRenderer.prototype = {
 
 
                             geometry = new THREE.BufferGeometry().setFromObject(object);
+                            if (!object.geometry.colors || object.geometry.colors.length == 0) {
+                                delete geometry.attributes.color;
+                            }
                         }
                         else {
                             return;
@@ -745,107 +647,79 @@ CesiumRenderer.prototype = {
         projectObject(scene);
 
 
+    },
 
-        function rotate(geometry, object) {
-            if (object.rotation && object.rotation.order) {
-                var rotate1 = "rotate" + object.rotation.order[0];
-                var rotate2 = "rotate" + object.rotation.order[1];
-                var rotate3 = "rotate" + object.rotation.order[2];
+    renderNextObject: function (frameState) {
 
-                var angle1 = object.rotation.order[0].toLocaleLowerCase();
-                var angle2 = object.rotation.order[1].toLocaleLowerCase();
-                var angle3 = object.rotation.order[1].toLocaleLowerCase();
-                if (object.rotation[angle1] !== 0) {
-                    geometry[rotate1](object.rotation[angle1]);
-                }
-                if (object.rotation[angle2] !== 0) {
-                    geometry[rotate2](object.rotation[angle2]);
-                }
-                if (object.rotation[angle3] !== 0) {
-                    geometry[rotate3](object.rotation[angle3]);
+
+        if (this._opaqueObjects.length > 0) {
+            this._opaqueObjectsLastIndex++;
+            if (this._opaqueObjectsLastIndex < this._opaqueObjects.length) {
+                for (var i = 0; i < this._opaqueObjects.length; i++) {
+
+                    var opaqueObject = this._opaqueObjects[this._opaqueObjectsLastIndex];
+
+                    this.renderObject(opaqueObject, this.scene3js, this.scene3js.overrideMaterial, frameState);
+
+                    this._opaqueObjectsLastIndex++;
+
+                    if (this._opaqueObjectsLastIndex >= this._opaqueObjects.length) {
+                        break;
+                    }
                 }
 
             }
-
         }
-        function renderObjects(renderList, scene, overrideMaterial, frameState) {
 
-            for (var i = 0, l = renderList.length; i < l; i++) {
+        if (this._transparentObjects.length > 0) {
 
-                var renderItem = renderList[i];
+            this._transparentObjectsLastIndex++;
+            if (this._transparentObjectsLastIndex < this._transparentObjects.length) {
 
-                var object = renderItem.object;
-                var geometry = renderItem.geometry.clone();
+                for (var i = 0; i < 2000; i++) {
+                    var transparentObject = this._transparentObjects[this._transparentObjectsLastIndex];
 
-                //if (object.position.x !== 0
-                //    || object.position.y !== 0
-                //    || object.position.z !== 0) {
-                //    geometry.translate(object.position.x, object.position.y, object.position.z);
-                //}
-                //if (object.scale.x !== 1
-                //   || object.scale.y !== 1
-                //   || object.scale.z !== 1) {
-                //    geometry.scale(object.scale.x, object.scale.y, object.scale.z);
-                //}
+                    this.renderObject(transparentObject, this.scene3js, this.scene3js.overrideMaterial, frameState);
 
-                //rotate(geometry, object);
-
-
-                var material = !overrideMaterial ? renderItem.material : overrideMaterial;
-                var group = renderItem.group;
-
-                //object.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
-                //object.normalMatrix.getNormalMatrix(object.modelViewMatrix);
-
-                //object.onBeforeRender(_this, scene, camera, geometry, material, group);
-
-                if (object.isImmediateRenderObject) {
-
-                    //setMaterial(material);
-
-                    //var program = setProgram(camera, scene.fog, material, object);
-
-                    //_currentGeometryProgram = '';
-
-                    //object.render(function (object) {
-
-                    //    _this.renderBufferImmediate(object, program, material);
-
-                    //});
-
-                } else {
-
-
-                    that.renderBufferDirect(geometry, material, object, group, frameState);
-
+                    this._transparentObjectsLastIndex++;
+                    if (this._transparentObjectsLastIndex >= this._transparentObjects.length) {
+                        break;
+                    }
                 }
 
-                //object.onAfterRender(_this, scene, camera, geometry, material, group);
-
-
             }
-
         }
 
-        if (scene.overrideMaterial) {
 
-            var overrideMaterial = scene.overrideMaterial;
+    },
+    renderObject: function (renderItem, scene, overrideMaterial, frameState) {
 
-            renderObjects(opaqueObjects, scene, overrideMaterial, frameState);
-            renderObjects(transparentObjects, scene, overrideMaterial, frameState);
+        var object = renderItem.object;
+        var geometry = renderItem.geometry;
+        var material = !overrideMaterial ? renderItem.material : overrideMaterial;
+        var group = renderItem.group;
+
+        if (object.isImmediateRenderObject) {
 
         } else {
 
-            // opaque pass (front-to-back order)
 
-            //state.setBlending(NoBlending);
-            renderObjects(opaqueObjects, scene, null, frameState);
-
-            // transparent pass (back-to-front order)
-
-            renderObjects(transparentObjects, scene, null, frameState);
+            this.renderBufferDirect(geometry, material, object, group, frameState);
 
         }
+    },
+    /**
+     *
+     *@param {THREE.Scene}scene
+     *@private
+     */
+    _render: function (scene, frameState) {
+        if (this._justLoad) {
+            this._opaqueObjectsLastIndex = -1;
+            this._transparentObjectsLastIndex = -1;
+        }
+        this.updateRenderQueue(this.scene3js, frameState);
+        this.renderNextObject(frameState);
     },
     /**
       *
@@ -970,8 +844,11 @@ CesiumRenderer.prototype = {
         command.renderState = RenderState.fromCache(defaults);
 
         if (material.transparent) {
+
+            command.renderState.cull.enabled = true;
             command.renderState.depthMask = false;
-            Object.assign(command.renderState.blending, BlendingState.ALPHA_BLEND)
+            Object.assign(command.renderState.blending, BlendingState.ALPHA_BLEND);
+            command.renderState.blending.color.alpha = material.opacity;
         } else {
             command.renderState.depthMask = true;
         }
@@ -1106,7 +983,11 @@ CesiumRenderer.prototype = {
                 uniformMap["u_diffuseMap"] = getTextureCallback(material["map"], material);
 
             }
-
+            else {
+                uniformMap["u_diffuseMap"] = function () {
+                    return frameState.context.defaultTexture;
+                }
+            }
             if (material.uniforms) {
 
 
@@ -1192,8 +1073,8 @@ CesiumRenderer.prototype = {
     getVertexShaderSource: function (geometry, material) {
         //var shaderID = shaderIDs[material.type];
         //var vertexShader = THREE.ShaderLib[shaderID].vertexShader;
-        //material.vertexShader = vertexShader;
 
+        //material.vertexShader = "#define NUM_CLIPPING_PLANES 0\n" + vertexShader;
         function getAttributeDefineBlok(userDefine) {
             var glsl = "";
             var attrs = geometry.attributes;
@@ -1287,8 +1168,14 @@ CesiumRenderer.prototype = {
                 \n\
                 varying vec3 v_position;\n";
         if (geometry.attributes.color) {
-            vs += "attribute vec4 color;\n\
+            if (geometry.attributes.color.componentsPerAttribute == 4) {
+                vs += "attribute vec4 color;\n\
                    varying vec4 v_color;\n";
+            } else {
+                vs += "attribute vec3 color;\n\
+                   varying vec4 v_color;\n";
+            }
+
         }
         vs += "\n\
                 void main(void) \n\
@@ -1296,13 +1183,19 @@ CesiumRenderer.prototype = {
                     vec4 pos = u_modelViewMatrix * vec4(position,1.0);\n\
                     v_position = pos.xyz;\n";
         if (geometry.attributes.color) {
-            vs + "v_color=color;\n";
+            if (geometry.attributes.color.componentsPerAttribute == 4) {
+                vs += "v_color=color;\n";
+            }
+            else {
+                vs += "v_color=vec4(color,1.0);\n";
+            }
         }
         if (geometry.attributes.uv && material.map && material.map.isTexture) {
             vs += "v_uv=uv;\n";
         }
         vs += "v_normal = u_normalMatrix * normal;\n\
                     gl_Position = u_projectionMatrix * pos;\n\
+                    gl_PointSize =4.0;\n\
                 }";
         vs = parseIncludes(vs);
         return vs;
@@ -1314,11 +1207,12 @@ CesiumRenderer.prototype = {
      */
     getFragmentShaderSource: function (geometry, material) {
         //var shaderID = shaderIDs[material.type];
-        //var vertexShader = THREE.ShaderLib[shaderID].fragmentShader;
-        //material.vertexShader = vertexShader;
+        //var fragmentShader = THREE.ShaderLib[shaderID].fragmentShader;
+        //material.fragmentShader = fragmentShader;
 
         if (material.fragmentShader) {
             var fs = parseIncludes(material.fragmentShader);
+            console.log(fs);
             return fs;
         }
 
@@ -1357,12 +1251,12 @@ CesiumRenderer.prototype = {
             fs += "material.alpha = diffuse.a;\n";
 
         }
-        else if (!material.color && geometry.attributes.color) {
+        else if (geometry.attributes.color) {
             fs += "material.diffuse = v_color.rgb;\n\
                            material.alpha = v_color.a;\n";
 
         } else {
-            fs += "material.diffuse = u_diffuse.rgb+u_specular.rgb;\n\
+            fs += "material.diffuse = u_diffuse.rgb ;\n\
                            material.alpha =  u_diffuse.a;\n";
         }
 
@@ -1508,7 +1402,8 @@ CesiumRenderer.prototype = {
         }
         this.scene3js = scene3js;
         this.scene3js.needUpdate = true;
-        this.isBuildingDrawCommand = true;
+        this._opaqueObjects = [];
+        this._transparentObjects = [];
     }
 
 }
