@@ -1,0 +1,513 @@
+﻿<!DOCTYPE html>
+<!-- saved from url=(0042)http://mikolalysenko.github.io/Isosurface/ -->
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Isosurface Toolbox</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
+    <script src="../ThirdParty/three.js"></script>
+    <script src="../ThirdParty/Cesium/Cesium.js"></script>
+    <script src="../appconfig.js"></script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+
+    <script src="./Isosurface/Detector.js"></script>
+    <script src="./Isosurface/Stats.js"></script>
+    <script src="./Isosurface/THREEx.screenshot.js"></script>
+    <script src="./Isosurface/THREEx.FullScreen.js"></script>
+    <script src="./Isosurface/THREEx.WindowResize.js"></script>
+    <script src="./Isosurface/threex.dragpancontrols.js"></script>
+    <!--Mesh algorithms-->
+    <script src="./Isosurface/marchingcubes.js"></script>
+    <script src="./Isosurface/marchingtetrahedra.js"></script>
+    <script src="./Isosurface/surfacenets.js"></script>
+    <script src="./Isosurface/perlinnoise.js"></script>
+    <script src="./Isosurface/testdata.js"></script>
+    <link href="http://mikolalysenko.github.io/Isosurface/css/main.css" rel="stylesheet">
+	<style>
+	.cesium-viewer-toolbar{
+	z-index:9999;
+	}
+	</style>
+</head>
+<body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+    </div>
+
+  
+    <!-- three.js container -->
+    <div id="container">
+        <!--<canvas width="1366" height="621"></canvas>-->
+    </div>
+    <!-- info on screen display -->
+    <div id="info">
+        <div class="top">
+            Isosurface Algorithm Tester
+        </div>
+        <div class="bottom" id="inlineDoc">
+            - <i>p</i> for screenshot - <i>f</i> for fullscreen
+        </div>
+        <div class="controls">
+            <p>
+                Input Data:
+            </p>
+            <p>
+                <select id="datasource">
+                    <option value="Sphere">Sphere</option>
+                    <option value="Torus">Torus</option>
+                    <option value="Big Sphere">Big Sphere</option>
+                    <option value="Hyperelliptic">Hyperelliptic</option>
+                    <option value="Nodal Cubic">Nodal Cubic</option>
+                    <option value="Goursat&#39;s Surface">Goursat's Surface</option>
+                    <option value="Heart">Heart</option>
+                    <option value="Nordstrand&#39;s Weird Surface">Nordstrand's Weird Surface</option>
+                    <option value="Sine Waves">Sine Waves</option>
+                    <option value="Perlin Noise">Perlin Noise</option>
+                    <option value="Asteroid">Asteroid</option>
+                    <option value="Terrain">Terrain</option>
+                    <option value="Empty">Empty</option>
+                </select>
+            </p>
+            <p>
+                Algorithm:
+            </p>
+            <p>
+                <select id="mesher">
+                   
+                </select>
+            </p>
+            <p>
+                Show facets:
+                <input type="checkbox" id="showfacets" value="checked">
+            </p>
+            <p>
+                Show edges:
+                <input type="checkbox" id="showedges" value="checked">
+            </p>
+            <p>
+                Resolution:
+                <input type="text" id="resolution" value="0">
+            </p>
+            <p>
+                Vertex count:
+                <input type="text" id="vertcount" value="0">
+            </p>
+            <p>
+                Face count:
+                <input type="text" id="facecount" value="0">
+            </p>
+            <p>
+                (Approx.) Time:<input type="text" id="meshtime" value="0">
+            </p>
+        </div>
+    </div> 
+    <script src="js/common.js"></script>
+    <script type="text/javascript">
+	
+        var stats, scene, renderer, composer;
+        var camera, cameraControl;
+        var geometry, surfacemesh, wiremesh;
+        var meshers = {
+            'Marching Cubes': MarchingCubes
+		  , 'Marching Tetraheda': MarchingTetrahedra
+	    , 'Naive Surface Nets': SurfaceNets
+        };
+        var testdata = {};
+
+        function updateMesh() {
+
+            scene.remove(surfacemesh);
+            scene.remove(wiremesh);
+
+            //Create surface mesh
+            geometry = new THREE.Geometry();
+
+            var mesher = meshers[document.getElementById("mesher").value]
+		    , field = testdata[document.getElementById("datasource").value]();
+
+
+
+            var start = (new Date()).getTime();
+            var result = mesher(field.data, field.dims);
+            var end = (new Date()).getTime();
+
+            //Update statistics
+            document.getElementById("resolution").value = field.dims[0] + 'x' + field.dims[1] + 'x' + field.dims[2];
+            document.getElementById("vertcount").value = result.vertices.length;
+            document.getElementById("facecount").value = result.faces.length;
+            document.getElementById("meshtime").value = (end - start) / 1000.0;
+
+            geometry.vertices.length = 0;
+            geometry.faces.length = 0;
+
+            for (var i = 0; i < result.vertices.length; ++i) {
+                var v = result.vertices[i];
+                geometry.vertices.push(new THREE.Vector3(v[0], v[1], v[2]));
+            }
+
+            for (var i = 0; i < result.faces.length; ++i) {
+                var f = result.faces[i];
+                if (f.length === 3) {
+                    geometry.faces.push(new THREE.Face3(f[0], f[1], f[2]));
+                } else if (f.length === 4) {
+                    geometry.faces.push(new THREE.Face4(f[0], f[1], f[2], f[3]));
+                } else {
+                    //Polygon needs to be subdivided
+                }
+            }
+
+            var cb = new THREE.Vector3(), ab = new THREE.Vector3();
+            for (var i = 0; i < geometry.faces.length; ++i) {
+                var f = geometry.faces[i];
+                var vA = geometry.vertices[f.a];
+                var vB = geometry.vertices[f.b];
+                var vC = geometry.vertices[f.c];
+                cb.subVectors(vC, vB);
+                ab.subVectors(vA, vB);
+                cb.crossSelf(ab);
+                cb.normalize();
+                if (result.faces[i].length == 3) {
+                    f.normal.copy(cb)
+                    continue;
+                }
+
+                // quad
+                if (cb.isZero()) {
+                    // broken normal in the first triangle, let's use the second triangle
+                    var vA = geometry.vertices[f.a];
+                    var vB = geometry.vertices[f.c];
+                    var vC = geometry.vertices[f.d];
+                    cb.subVectors(vC, vB);
+                    ab.subVectors(vA, vB);
+                    cb.crossSelf(ab);
+                    cb.normalize();
+                }
+                f.normal.copy(cb);
+            }
+
+            geometry.verticesNeedUpdate = true;
+            geometry.elementsNeedUpdate = true;
+            geometry.normalsNeedUpdate = true;
+
+            geometry.computeBoundingBox();
+            geometry.computeBoundingSphere();
+
+            var material = new THREE.MeshBasicMaterial({
+                color: "#00a6ac"
+            });
+            // new THREE.MeshNormalMaterial();
+            surfacemesh = new THREE.Mesh(geometry, material);
+            surfacemesh.doubleSided = true;
+            var wirematerial = new THREE.MeshBasicMaterial({
+                color: 0xffffff
+			  , wireframe: true
+            });
+            wiremesh = new THREE.Mesh(geometry, wirematerial);
+            wiremesh.doubleSided = true;
+            scene.add(surfacemesh);
+            scene.add(wiremesh);
+            surfacemesh.visible = document.getElementById("showfacets").checked;
+            wiremesh.visible = document.getElementById("showedges").checked;
+
+            var bb = geometry.boundingBox;
+            wiremesh.position.x = surfacemesh.position.x = -(bb.max.x + bb.min.x) / 2.0;
+            wiremesh.position.y = surfacemesh.position.y = -(bb.max.y + bb.min.y) / 2.0;
+            wiremesh.position.z = surfacemesh.position.z = -(bb.max.z + bb.min.z) / 2.0;
+
+            cesiumRenderer.render(scene,camera,true);
+        }
+
+        THREE.Vector3.prototype.crossSelf = function (a) {
+            var b = this.x, c = this.y, d = this.z; this.x = c * a.z - d * a.y; this.y = d * a.x - b * a.z; this.z = b * a.y - c * a.x; return this
+        }
+		 THREE.Vector3.prototype.isZero= function () { 
+			return this.lengthSq() < 1.0E-4 
+		}
+	
+        if (!init()) animate();
+
+        // init the scene
+        function init() {
+
+            if (Detector.webgl) {
+                renderer = new THREE.WebGLRenderer({
+                    antialias: true, // to get smoother output
+                    preserveDrawingBuffer: true	// to allow screenshot
+                });
+                //   renderer.setClearColorHex(0xBBBBBB, 1);
+            } else {
+                renderer = new THREE.CanvasRenderer();
+            }
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // add Stats.js - https://github.com/mrdoob/stats.js
+            stats = new Stats();
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.bottom = '0px';
+            document.body.appendChild(stats.domElement);
+
+            // create a scene
+            scene = new THREE.Scene();
+
+            // put a camera in the scene
+            camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.set(0, 0, 40);
+            scene.add(camera);
+
+            // create a camera contol
+            //cameraControls = new THREE.TrackballControls(camera, document.getElementById('container'))
+
+            // transparently support window resize
+            THREEx.WindowResize.bind(renderer, camera);
+            // allow 'p' to make screenshot
+            THREEx.Screenshot.bindKey(renderer);
+            // allow 'f' to go fullscreen where this feature is supported
+            if (THREEx.FullScreen.available()) {
+                THREEx.FullScreen.bindKey();
+                document.getElementById('inlineDoc').innerHTML += "- <i>f</i> for fullscreen";
+            }
+
+            // here you add your objects
+            // - you will most likely replace this part by your own
+            var light = new THREE.AmbientLight(Math.random() * 0xffffff);
+            //scene.add(light);
+            var light = new THREE.DirectionalLight(Math.random() * 0xffffff);
+            light.position.set(Math.random(), Math.random(), Math.random()).normalize();
+            //scene.add(light);
+            
+            //Initialize dom elements
+            testdata = createTestData();
+            var ds = document.getElementById("datasource");
+            for (var id in testdata) {
+                ds.add(new Option(id, id), null);
+            }
+            ds.onchange = updateMesh;
+            var ms = document.getElementById("mesher");
+            for (var alg in meshers) {
+                ms.add(new Option(alg, alg), null);
+            }
+            ms.onchange = updateMesh;
+
+            document.getElementById("showfacets").checked = true;
+            document.getElementById("showedges").checked = true;
+
+            //Update mesh
+            updateMesh();
+
+            return false;
+        }
+
+        // animation loop
+        function animate() {
+
+            // loop on request animation loop
+            // - it has to be at the begining of the function
+            // - see details at http://my.opera.com/emoller/blog/2011/12/20/requestanimationframe-for-smart-er-animating
+            requestAnimationFrame(animate);
+
+            // do the render
+            render();
+
+            // update stats
+            stats.update();
+        }
+
+        // render the scene
+        function render() {
+            // variable which is increase by Math.PI every seconds - usefull for animation
+            var PIseconds = Date.now() * Math.PI;
+
+            // update camera controls
+            //cameraControls.update();
+
+            var visibleChanged = false;
+            if (surfacemesh.visible !== document.getElementById("showfacets").checked) {
+                surfacemesh.visible = document.getElementById("showfacets").checked;
+                visibleChanged = true;
+            }
+            if (wiremesh.visible !== document.getElementById("showedges").checked) {
+                visibleChanged = true; 
+                wiremesh.visible = document.getElementById("showedges").checked;
+            }
+            
+
+            cesiumRenderer.render(scene, camera, visibleChanged);
+            //threeScene.setScene3js(scene);
+            // actually render the scene
+           // renderer.render(scene, camera);
+        }
+    </script>
+    <div style="cursor: pointer; width: 80px; opacity: 0.9; z-index: 10001; position: absolute;
+        bottom: 0px;">
+        <div style="text-align: left; line-height: 1.2em; padding: 0px 0px 3px 3px; background-color: rgb(8, 8, 24);">
+            
+            <div style="position: relative; width: 74px; height: 30px; background-color: rgb(0, 255, 255);">
+                <span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.6px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.3px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.6px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.3px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 13.2px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 14.4px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 14.4px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.3px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 30px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.3px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.3px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12.6px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 12px; float: left; background-color: rgb(16, 16, 48);">
+                </span><span style="width: 1px; height: 15.3px; float: left; background-color: rgb(16, 16, 48);">
+                </span>
+            </div>
+        </div>
+        <div style="text-align: left; line-height: 1.2em; padding: 0px 0px 3px 3px; display: none;
+            background-color: rgb(8, 24, 8);">
+            <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9px; color: rgb(0, 255, 0);
+                font-weight: bold;">
+                16 MS (2-71365)
+            </div>
+            <div style="position: relative; width: 74px; height: 30px; background-color: rgb(0, 255, 0);">
+                <span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 26.55px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 28.35px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.15px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.75px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 23.85px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 16.8px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 18.15px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 26.1px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 25.05px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.45px; float: left; background-color: rgb(16, 48, 16);">
+                </span><span style="width: 1px; height: 27.6px; float: left; background-color: rgb(16, 48, 16);">
+                </span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
