@@ -53,7 +53,7 @@
             font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
         }
     </style>
-    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" / >
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
 </head>
 <body>
     <div id="cesiumContainer">
@@ -68,7 +68,7 @@
     <script src="js/common.js" type="text/javascript"></script>
     <div id="container"></div>
     <div id="info"><a href="http://threejs.org" target="_blank">three.js</a> webgl - buffergeometry - particles</div>
-    <script src="../build/three.js"></script>
+     
     <script src="js/Detector.js"></script>
     <script src="js/libs/stats.min.js"></script>
     <script>
@@ -180,7 +180,7 @@
 
 			function animate() {
 
-				//requestAnimationFrame( animate );
+				requestAnimationFrame( animate );
 
 				render();
 				stats.update();
@@ -191,10 +191,10 @@
 
 				var time = Date.now() * 0.001;
 
-				points.rotation.x = time * 0.25;
-				points.rotation.y = time * 0.5;
+				//points.rotation.x = time * 0.25;
+				points.rotation.z = time * 0.5;
 
-				cesiumRenderer.render( scene, camera );
+				cesiumRenderer.render( scene, camera);
 
 			}
 

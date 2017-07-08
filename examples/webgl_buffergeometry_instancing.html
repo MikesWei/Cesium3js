@@ -1,111 +1,143 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>three.js webgl - instancing test (single triangle)</title>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-	<style>
-		body {
-			color: #ffffff;
-			font-family: Monospace;
-			font-size: 13px;
-			text-align: center;
-			font-weight: bold;
-			background-color: #000000;
-			margin: 0px;
-			overflow: hidden;
-		}
+    <title>three.js webgl - instancing test (single triangle)</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            color: #ffffff;
+            font-family: Monospace;
+            font-size: 13px;
+            text-align: center;
+            font-weight: bold;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
 
-		#info {
-			position: absolute;
-			top: 0px;
-			width: 100%;
-			padding: 5px;
-		}
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 5px;
+        }
 
-		a {
-			color: #ffffff;
-		}
+        a {
+            color: #ffffff;
+        }
 
-		#oldie a {
-			color: #da0;
-		}
+        #oldie a {
+            color: #da0;
+        }
 
-		#notSupported {
-			width: 50%;
-			margin: auto;
-			border: 2px red solid;
-			margin-top: 20px;
-			padding: 10px;
-		}
-	</style>
+        #notSupported {
+            width: 50%;
+            margin: auto;
+            border: 2px red solid;
+            margin-top: 20px;
+            padding: 10px;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: -moz-calc(100% );
+            height: -webkit-calc(100%);
+            height: cal(100%);
+            width: -moz-calc(100% );
+            width: -webkit-calc(100%);
+            width: cal(100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: -moz-calc(100% - 0px );
+            height: -webkit-calc(100% - 0px );
+            height: cal(100% - 0px);
+            font-size: 16px; /*moz-user-select: -moz-none;     -moz-user-select: none;     -o-user-select: none;     -khtml-user-select: none;     -webkit-user-select: none;     -ms-user-select: none;     user-select: none;*/
+        }
+    </style>
+    <link href="../ThirdParty/Cesium/Widgets/widgets.css" rel="stylesheet" />
 </head>
 <body>
+    <div id="cesiumContainer">
+    </div>
+    <div id="creditContainer" style="display: none;">
+    </div>
 
-	<div id="container"></div>
-	<div id="info">
-		<a href="http://threejs.org" target="_blank">three.js</a> - instancing demo (single triangle)
-		<div id="notSupported" style="display:none">Sorry your graphics card + browser does not support hardware instancing</div>
-	</div>
+    <script src="../ThirdParty/three.js"> </script>
+    <script src="../ThirdParty/Cesium/Cesium.js" type="text/javascript"> </script>
+    <script src="../appconfig.js"> </script>
+    <script src="../Source/Core/CesiumRenderer.js"></script>
+    <script src="js/common.js" type="text/javascript"></script>
+    
+    <div id="container"></div>
+    <div id="info">
+        <a href="http://threejs.org" target="_blank">three.js</a> - instancing demo (single triangle)
+        <div id="notSupported" style="display:none">Sorry your graphics card + browser does not support hardware instancing</div>
+    </div>
+    <script src="js/libs/dat.gui.min.js"></script> 
+    <script src="js/Detector.js"></script>
+    <script src="js/libs/stats.min.js"></script>
+    <script id="vertexShader" type="x-shader/x-vertex">
+        precision highp float;
 
-	<script src="js/libs/dat.gui.min.js"></script>
-	<script src="../build/three.js"></script>
-	<script src="js/Detector.js"></script>
-	<script src="js/libs/stats.min.js"></script>
+        uniform float sineTime;
 
-	<script id="vertexShader" type="x-shader/x-vertex">
-		precision highp float;
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
 
-		uniform float sineTime;
+        attribute vec3 position;
+        attribute vec3 offset;
+        attribute vec4 color;
+        attribute vec4 orientationStart;
+        attribute vec4 orientationEnd;
 
-		uniform mat4 modelViewMatrix;
-		uniform mat4 projectionMatrix;
+        varying vec3 vPosition;
+        varying vec4 vColor;
 
-		attribute vec3 position;
-		attribute vec3 offset;
-		attribute vec4 color;
-		attribute vec4 orientationStart;
-		attribute vec4 orientationEnd;
+        void main(){
 
-		varying vec3 vPosition;
-		varying vec4 vColor;
+        vPosition = offset * max(abs(sineTime * 2.0 + 1.0), 0.5) + position;
+        vec4 orientation = normalize(mix(orientationStart, orientationEnd, sineTime));
+        vec3 vcV = cross(orientation.xyz, vPosition);
+        vPosition = vcV * (2.0 * orientation.w) + (cross(orientation.xyz, vcV) * 2.0 + vPosition);
 
-		void main(){
+        vColor = color;
 
-			vPosition = offset * max(abs(sineTime * 2.0 + 1.0), 0.5) + position;
-			vec4 orientation = normalize(mix(orientationStart, orientationEnd, sineTime));
-			vec3 vcV = cross(orientation.xyz, vPosition);
-			vPosition = vcV * (2.0 * orientation.w) + (cross(orientation.xyz, vcV) * 2.0 + vPosition);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( vPosition, 1.0 );
 
-			vColor = color;
+        }
 
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( vPosition, 1.0 );
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        precision highp float;
 
-		}
+        uniform float time;
 
-	</script>
+        varying vec3 vPosition;
+        varying vec4 vColor;
 
-	<script id="fragmentShader" type="x-shader/x-fragment">
+        void main() {
 
-		precision highp float;
+        vec4 color = vec4( vColor );
+        color.r += sin( vPosition.x * 10.0 + time ) * 0.5;
 
-		uniform float time;
+        gl_FragColor =  color ;
 
-		varying vec3 vPosition;
-		varying vec4 vColor;
+        }
 
-		void main() {
-
-			vec4 color = vec4( vColor );
-			color.r += sin( vPosition.x * 10.0 + time ) * 0.5;
-
-			gl_FragColor = color;
-
-		}
-
-	</script>
-
-	<script>
+    </script>
+    <script>
 
 		if ( !Detector.webgl ) Detector.addGetWebGLMessage();
 
@@ -203,7 +235,7 @@
 				vertexShader: document.getElementById( 'vertexShader' ).textContent,
 				fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
 				side: THREE.DoubleSide,
-				transparent: true
+				transparent: false
 
 			} );
 
@@ -259,12 +291,11 @@
 			object.material.uniforms.time.value = time * 0.005;
 			object.material.uniforms.sineTime.value = Math.sin( object.material.uniforms.time.value * 0.05 );
 
-			renderer.render( scene, camera );
+			cesiumRenderer.render( scene, camera,true );
 
 		}
 
-	</script>
-
+    </script>
 </body>
 
 </html>
