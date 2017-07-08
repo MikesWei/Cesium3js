@@ -401,6 +401,13 @@ CesiumRenderer.prototype = {
                 cesiumGeometry = Cesium.GeometryPipeline.toWireframe(cesiumGeometry);
             }
         }
+
+        if (object.geometry.isInstancedBufferGeometry) {
+
+            throw new Error("InstancedBufferGeometry is not supported now.");
+
+        }
+
         var drawCommand = this.createDrawCommand(cesiumGeometry, material, frameState);
 
         drawCommand.receiveShadows = false;
@@ -599,7 +606,7 @@ CesiumRenderer.prototype = {
 
 
                             geometry = new THREE.BufferGeometry().setFromObject(object);
-                            if (!object.geometry.colors || object.geometry.colors.length == 0) {
+                            if (!material.vertexColors ||( !object.geometry.__directGeometry && (!object.geometry.colors || object.geometry.colors.length == 0))) {
                                 delete geometry.attributes.color;
                             }
                         }
@@ -692,6 +699,7 @@ CesiumRenderer.prototype = {
 
 
     },
+
     renderObject: function (renderItem, scene, overrideMaterial, frameState) {
 
         var object = renderItem.object;
@@ -871,6 +879,12 @@ CesiumRenderer.prototype = {
         drawCommand.uniformMap = this._uniformMaps[material.uuid];
         material.needsUpdate = false;
 
+        uniformMap.cameraPosition = function () {
+            return frameState.camera.position;
+        }
+        uniformMap.u_cameraPosition = function () {
+            return frameState.camera.position;
+        }
         //base matrix
         uniformMap.u_normalMatrix = function () {
             return frameState.context.uniformState.normal;
@@ -990,7 +1004,6 @@ CesiumRenderer.prototype = {
             }
             if (material.uniforms) {
 
-
                 function setUniformCallbackFunc(name, item) {
 
                     if (item !== undefined && item !== null) {//item may be 0
@@ -1015,21 +1028,48 @@ CesiumRenderer.prototype = {
                             }
                         } else if (item.value.isCubeTexture) {
                             uniformMap[name] = function () {
-                                if (!that._textureCache[item.value.uuid]) {
-                                    that._textureCache[item.value.uuid] = new Cesium.CubeMap({
-                                        context: frameState.context,
-                                        source: {
-                                            positiveX: item.value.images[0],
-                                            negativeX: item.value.images[1],
-                                            positiveY: item.value.images[2],
-                                            negativeY: item.value.images[3],
-                                            positiveZ: item.value.images[4],
-                                            negativeZ: item.value.images[5]
+                                if (!that._textureCache[item.value.uuid]
+                                    && item.value.images.length > 0) {
+                                    var allLoaded = true;
+                                    for (var ti = 0; ti < 6; ti++) {
+                                        if (item.value.images[ti] === undefined) {
+                                            allLoaded = false;
+                                            break;
                                         }
-                                    });
-                                }
-                                return that._textureCache[item.value.uuid];
+                                    }
+                                    if (allLoaded) {
+                                        that._textureCache[item.value.uuid] = new Cesium.CubeMap({
+                                            context: frameState.context,
+                                            source: {
+                                                positiveX: item.value.images[0],
+                                                negativeX: item.value.images[1],
+                                                positiveY: item.value.images[2],
+                                                negativeY: item.value.images[3],
+                                                positiveZ: item.value.images[4],
+                                                negativeZ: item.value.images[5]
+                                            }
+                                        });
+                                        return that._textureCache[item.value.uuid];
+                                    }
 
+                                }
+
+                                if (!that.defaultTextureImage) {
+                                    that.defaultTextureImage = document.createElement("canvas");
+                                    that.defaultTextureImage.width = 1;
+                                    that.defaultTextureImage.height = 1;
+                                }
+                                return new Cesium.CubeMap({
+                                    context: frameState.context,
+                                    source: {
+                                        positiveX: that.defaultTextureImage,
+                                        negativeX: that.defaultTextureImage,
+                                        positiveY: that.defaultTextureImage,
+                                        negativeY: that.defaultTextureImage,
+                                        positiveZ: that.defaultTextureImage,
+                                        negativeZ: that.defaultTextureImage
+                                    }
+                                });
                             }
                         } else if (item.value.isTexture) {
                             uniformMap[name] = getTextureCallback(item.value, material);
@@ -1124,7 +1164,9 @@ CesiumRenderer.prototype = {
         uniform mat4 u_viewMatrix;\n\
         uniform mat4 u_modelMatrix;\n\
         uniform mat4 u_projectionMatrix;\n\
-        uniform mat3 u_normalMatrix;\n";
+        uniform mat3 u_normalMatrix;\n\
+        uniform vec3 cameraPosition;\n\
+        uniform vec3 u_cameraPosition;\n";
 
         var innerUniforms = [
             "uniform mat4 modelViewMatrix",
@@ -1136,7 +1178,9 @@ CesiumRenderer.prototype = {
             "uniform mat4 u_projectionMatrix",
             "uniform mat3 u_normalMatrix",
             "uniform mat4 u_viewMatrix",
-            "uniform mat4 viewMatrix"
+            "uniform mat4 viewMatrix",
+            "uniform vec3 cameraPosition",
+            "uniform vec3 u_cameraPosition"
         ];
         if (material.vertexShader) {
             uniforms = "";
@@ -1212,7 +1256,6 @@ CesiumRenderer.prototype = {
 
         if (material.fragmentShader) {
             var fs = parseIncludes(material.fragmentShader);
-            console.log(fs);
             return fs;
         }
 
@@ -1235,7 +1278,7 @@ CesiumRenderer.prototype = {
                 {\n\
                     vec3 positionToEyeEC = -v_position; \n\
                 \n\
-                    vec3 normalEC = normalize(v_normal);\n\
+                    vec3 normalEC =normalize(v_normal);\n\
                  \n\
                     czm_material material;\n";
 
